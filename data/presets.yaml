@@ -1,0 +1,68 @@
+version: "1.0"
+presets:
+  - id: default
+    name: Default lattice
+    description: Balanced 8×9 lattice with moderate coupling
+    params:
+      mode: lattice
+      spatialFrequency: 1.0
+      waveSpeed: 0.5
+      neighborCoupling: 0.22
+      damping: 0.08
+      symmetry: 1.0
+      palette: aurora
+      perturbationStrength: 0.0
+      latticeRows: 8
+      latticeCols: 9
+
+  - id: interference
+    name: Interference
+    description: Continuous wave interference field
+    params:
+      mode: interference
+      spatialFrequency: 1.4
+      waveSpeed: 0.65
+      neighborCoupling: 0.15
+      damping: 0.05
+      symmetry: 1.0
+      palette: ocean
+      perturbationStrength: 0.0
+
+  - id: phase_topology
+    name: Phase topology
+    description: Emphasize phase structure over amplitude
+    params:
+      mode: phase
+      spatialFrequency: 1.0
+      waveSpeed: 0.4
+      neighborCoupling: 0.25
+      damping: 0.06
+      symmetry: 1.0
+      palette: magma
+      perturbationStrength: 0.5
+
+  - id: radial
+    name: Radial harmonics
+    description: Radial harmonic rings from lattice center
+    params:
+      mode: radial
+      spatialFrequency: 1.8
+      waveSpeed: 0.55
+      neighborCoupling: 0.18
+      damping: 0.07
+      symmetry: 3.0
+      palette: spectrum
+      perturbationStrength: 1.0
+
+  - id: calm
+    name: Calm damping
+    description: Strong damping, low energy field
+    params:
+      mode: lattice
+      spatialFrequency: 0.8
+      waveSpeed: 0.3
+      neighborCoupling: 0.12
+      damping: 0.15
+      symmetry: 1.0
+      palette: mono
+      perturbationStrength: 0.0
