@@ -1,0 +1,83 @@
+# ShemWave triplet dataset
+# Visual mathematical model only — not a claim of physical frequencies.
+# Order and duplicates preserved exactly as supplied.
+version: "1.0"
+source: "supplied-72-triads"
+notes: >
+  72 three-letter Hebrew forms in supplied order. Duplicates are intentional
+  and must not be removed. Final forms (ךםןףץ) are kept in display text;
+  gematria uses normalized medial forms.
+
+triplets:
+  - { id: t001, letters: "והו", display: "והו", source_index: 0 }
+  - { id: t002, letters: "יזה", display: "יזה", source_index: 1 }
+  - { id: t003, letters: "ואל", display: "ואל", source_index: 2 }
+  - { id: t004, letters: "התנ", display: "התנ", source_index: 3 }
+  - { id: t005, letters: "וחי", display: "וחי", source_index: 4 }
+  - { id: t006, letters: "ההה", display: "ההה", source_index: 5 }
+  - { id: t007, letters: "והו", display: "והו", source_index: 6 }
+  - { id: t008, letters: "םמנ", display: "םמנ", source_index: 7 }
+  - { id: t009, letters: "במד", display: "במד", source_index: 8 }
+  - { id: t010, letters: "ילי", display: "ילי", source_index: 9 }
+  - { id: t011, letters: "דלא", display: "דלא", source_index: 10 }
+  - { id: t012, letters: "ילכ", display: "ילכ", source_index: 11 }
+  - { id: t013, letters: "אאה", display: "אאה", source_index: 12 }
+  - { id: t014, letters: "חהל", display: "חהל", source_index: 13 }
+  - { id: t015, letters: "כימ", display: "כימ", source_index: 14 }
+  - { id: t016, letters: "ינד", display: "ינד", source_index: 15 }
+  - { id: t017, letters: "ליי", display: "ליי", source_index: 16 }
+  - { id: t018, letters: "קנמ", display: "קנמ", source_index: 17 }
+  - { id: t019, letters: "טיס", display: "טיס", source_index: 18 }
+  - { id: t020, letters: "ואל", display: "ואל", source_index: 19 }
+  - { id: t021, letters: "וול", display: "וול", source_index: 20 }
+  - { id: t022, letters: "תרי", display: "תרי", source_index: 21 }
+  - { id: t023, letters: "קוכ", display: "קוכ", source_index: 22 }
+  - { id: t024, letters: "לוו", display: "לוו", source_index: 23 }
+  - { id: t025, letters: "שחה", display: "שחה", source_index: 24 }
+  - { id: t026, letters: "חרה", display: "חרה", source_index: 25 }
+  - { id: t027, letters: "עיא", display: "עיא", source_index: 26 }
+  - { id: t028, letters: "םלע", display: "םלע", source_index: 27 }
+  - { id: t029, letters: "עהה", display: "עהה", source_index: 28 }
+  - { id: t030, letters: "להפ", display: "להפ", source_index: 29 }
+  - { id: t031, letters: "האש", display: "האש", source_index: 30 }
+  - { id: t032, letters: "דנמ", display: "דנמ", source_index: 31 }
+  - { id: t033, letters: "הלי", display: "הלי", source_index: 32 }
+  - { id: t034, letters: "םמע", display: "םמע", source_index: 33 }
+  - { id: t035, letters: "רצמ", display: "רצמ", source_index: 34 }
+  - { id: t036, letters: "ובח", display: "ובח", source_index: 35 }
+  - { id: t037, letters: "שהמ", display: "שהמ", source_index: 36 }
+  - { id: t038, letters: "לזי", display: "לזי", source_index: 37 }
+  - { id: t039, letters: "ךלנ", display: "ךלנ", source_index: 38 }
+  - { id: t040, letters: "ייר", display: "ייר", source_index: 39 }
+  - { id: t041, letters: "ינא", display: "ינא", source_index: 40 }
+  - { id: t042, letters: "לאס", display: "לאס", source_index: 41 }
+  - { id: t043, letters: "אננ", display: "אננ", source_index: 42 }
+  - { id: t044, letters: "במו", display: "במו", source_index: 43 }
+  - { id: t045, letters: "האר", display: "האר", source_index: 44 }
+  - { id: t046, letters: "הלל", display: "הלל", source_index: 45 }
+  - { id: t047, letters: "הבמ", display: "הבמ", source_index: 46 }
+  - { id: t048, letters: "ייי", display: "ייי", source_index: 47 }
+  - { id: t049, letters: "םוא", display: "םוא", source_index: 48 }
+  - { id: t050, letters: "םעח", display: "םעח", source_index: 49 }
+  - { id: t051, letters: "ירע", display: "ירע", source_index: 50 }
+  - { id: t052, letters: "תינ", display: "תינ", source_index: 51 }
+  - { id: t053, letters: "ההי", display: "ההי", source_index: 52 }
+  - { id: t054, letters: "מבי", display: "מבי", source_index: 53 }
+  - { id: t055, letters: "אכא", display: "אכא", source_index: 54 }
+  - { id: t056, letters: "ירה", display: "ירה", source_index: 55 }
+  - { id: t057, letters: "הלמ", display: "הלמ", source_index: 56 }
+  - { id: t058, letters: "בכל", display: "בכל", source_index: 57 }
+  - { id: t059, letters: "הער", display: "הער", source_index: 58 }
+  - { id: t060, letters: "לשע", display: "לשע", source_index: 59 }
+  - { id: t061, letters: "הבמ", display: "הבמ", source_index: 60 }
+  - { id: t062, letters: "ונע", display: "ונע", source_index: 61 }
+  - { id: t063, letters: "ייה", display: "ייה", source_index: 62 }
+  - { id: t064, letters: "תהכ", display: "תהכ", source_index: 63 }
+  - { id: t065, letters: "םקה", display: "םקה", source_index: 64 }
+  - { id: t066, letters: "והח", display: "והח", source_index: 65 }
+  - { id: t067, letters: "רשו", display: "רשו", source_index: 66 }
+  - { id: t068, letters: "זיי", display: "זיי", source_index: 67 }
+  - { id: t069, letters: "הימ", display: "הימ", source_index: 68 }
+  - { id: t070, letters: "יופ", display: "יופ", source_index: 69 }
+  - { id: t071, letters: "יחמ", display: "יחמ", source_index: 70 }
+  - { id: t072, letters: "םומ", display: "םומ", source_index: 71 }
