@@ -9,8 +9,8 @@ defaults:
   symmetry: 1.0
   palette: aurora
   perturbationStrength: 0.0
-  latticeRows: 8
-  latticeCols: 9
+  latticeRows: 16
+  latticeCols: 16
   stepsPerFrame: 1
   canvasScale: 1
   sensitivity: 1.0
@@ -18,6 +18,10 @@ defaults:
   continuousStrength: 0.6
   fieldDecay: 0.92
   refractoryMs: 180
+  waveformDisplacement: 0.55
+  frequencyResponse: 0.55
+  audioSensitivity: 1.0
+  audioSmoothing: 0.45
 
 bounds:
   spatialFrequency: { min: 0.1, max: 4.0 }
@@ -27,14 +31,18 @@ bounds:
   nonlinearity: { min: 0.0, max: 0.2 }
   symmetry: { min: 1.0, max: 8.0 }
   perturbationStrength: { min: 0.0, max: 5.0 }
-  latticeRows: { min: 4, max: 16 }
-  latticeCols: { min: 4, max: 16 }
+  latticeRows: { min: 4, max: 32 }
+  latticeCols: { min: 4, max: 32 }
   stepsPerFrame: { min: 1, max: 8 }
   sensitivity: { min: 0.2, max: 3.0 }
   pulseStrength: { min: 0.2, max: 4.0 }
   continuousStrength: { min: 0.1, max: 2.0 }
   fieldDecay: { min: 0.7, max: 0.99 }
   refractoryMs: { min: 50, max: 500 }
+  waveformDisplacement: { min: 0.0, max: 1.5 }
+  frequencyResponse: { min: 0.0, max: 1.5 }
+  audioSensitivity: { min: 0.2, max: 3.0 }
+  audioSmoothing: { min: 0.05, max: 0.9 }
 
 modes:
   - id: lattice
