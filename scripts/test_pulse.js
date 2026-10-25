@@ -40,7 +40,8 @@ console.log('PulseDetector');
     noiseFloorAlpha: 0.01,
   });
   assert(d.process(silence()) === null, 'silence does not create pulse');
-  assert(d.pulseCount === 0, 'pulse count stays 0 after silence');\n
+  assert(d.pulseCount === 0, 'pulse count stays 0 after silence');
+
   const p1 = d.process(transient(256, 0.9), 1000);
   assert(p1 !== null && p1.strength > 0, 'transient above threshold creates pulse');
   assert(d.pulseCount === 1, 'pulse count increments');
