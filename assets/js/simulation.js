@@ -1,16 +1,22 @@
 /**
- * Complex-lattice simulation: 8×9 default, four-neighbor coupling,
+ * Complex-lattice simulation: configurable rows×cols, four-neighbor coupling,
  * damping, bounded nonlinearity. Separate from drawing.
+ *
+ * Triplet→grid mapping (deterministic, any size):
+ *  - Cell k maps to triplet index (k % tripletCount).
+ *  - Selected triplet components are mixed into the lattice center as a bias.
+ *  - Does not require grid cells === triplet count.
  */
 
 export class ComplexLattice {
-  constructor(rows = 8, cols = 9) {
-    this.rows = rows;
-    this.cols = cols;
-    this.re = new Float64Array(rows * cols);
-    this.im = new Float64Array(rows * cols);
-    this._tmpRe = new Float64Array(rows * cols);
-    this._tmpIm = new Float64Array(rows * cols);
+  constructor(rows = 16, cols = 16) {
+    this.rows = Math.max(2, rows | 0);
+    this.cols = Math.max(2, cols | 0);
+    const n = this.rows * this.cols;
+    this.re = new Float64Array(n);
+    this.im = new Float64Array(n);
+    this._tmpRe = new Float64Array(n);
+    this._tmpIm = new Float64Array(n);
     this.paused = false;
     this.time = 0;
   }
@@ -30,43 +36,55 @@ export class ComplexLattice {
     this.im[k] = im;
   }
 
-  /** Initialize from triplet wave params across the lattice. */
   initFromWaveParams(waveParams, allTripletParams) {
     const n = this.rows * this.cols;
     this.re.fill(0);
     this.im.fill(0);
-    if (allTripletParams && allTripletParams.length === n) {
+
+    const list =
+      allTripletParams && allTripletParams.length > 0 ? allTripletParams : null;
+
+    if (list) {
+      const tCount = list.length;
       for (let k = 0; k < n; k++) {
-        const p = allTripletParams[k];
-        const amp = p.total / 100;
-        const phase = ((p.total % 360) * Math.PI) / 180;
-        this.re[k] = amp * Math.cos(phase);
-        this.im[k] = amp * Math.sin(phase);
+        const p = list[k % tCount];
+        const total = p && Number.isFinite(p.total) ? p.total : 0;
+        const amp = total / 100;
+        const phase = ((total % 360) * Math.PI) / 180;
+        let re = amp * Math.cos(phase);
+        let im = amp * Math.sin(phase);
+        if (!Number.isFinite(re)) re = 0;
+        if (!Number.isFinite(im)) im = 0;
+        this.re[k] = re;
+        this.im[k] = im;
       }
-    } else if (waveParams) {
+    }
+
+    if (waveParams && waveParams.components) {
       const ci = Math.floor(this.rows / 2);
       const cj = Math.floor(this.cols / 2);
       for (const c of waveParams.components) {
-        const amp = c.amp * 2;
-        const re = amp * Math.cos(c.phaseOffset);
-        const im = amp * Math.sin(c.phaseOffset);
+        const amp = (c.amp || 0) * 2;
+        const re = amp * Math.cos(c.phaseOffset || 0);
+        const im = amp * Math.sin(c.phaseOffset || 0);
         const k = this.index(ci, cj);
-        this.re[k] += re;
-        this.im[k] += im;
+        this.re[k] += Number.isFinite(re) ? re : 0;
+        this.im[k] += Number.isFinite(im) ? im : 0;
       }
     }
+
     this.time = 0;
   }
 
   inject(i, j, strength) {
-    const k = this.index(i % this.rows, j % this.cols);
-    this.re[k] += strength;
+    const ii = ((i % this.rows) + this.rows) % this.rows;
+    const jj = ((j % this.cols) + this.cols) % this.cols;
+    const k = this.index(ii, jj);
+    const s = Number.isFinite(strength) ? strength : 0;
+    this.re[k] += s;
+    if (Math.abs(this.re[k]) > 1e6) this.re[k] = Math.sign(this.re[k]) * 1e6;
   }
 
-  /**
-   * One evolution step.
-   * alpha = neighborCoupling, beta = nonlinearity, gamma = damping
-   */
   step(alpha = 0.22, beta = 0.03, gamma = 0.08) {
     if (this.paused) return;
     const { rows, cols, re, im, _tmpRe, _tmpIm } = this;
