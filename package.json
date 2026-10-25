@@ -2,5 +2,5 @@
   "name": "shemwave",
   "private": true,
   "type": "module",
-  "description": "Static browser app — no build step required"
+  "description": "Static browser app - no build step required"
 }
