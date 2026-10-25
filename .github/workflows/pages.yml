@@ -2,7 +2,7 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [feat/yaml-static-renderer, main]
+    branches: [main, feat/yaml-static-renderer, fix/github-pages-browser]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,13 @@ jobs:
         run: |
           test -f index.html
           test -f assets/js/app.js
+          test -f assets/js/gematria.js
+          test -f assets/js/triplets.js
+          test -f assets/js/renderer.js
+          test -f assets/js/simulation.js
+          test -f assets/js/audio.js
+          test -f assets/js/export.js
+          test -f assets/css/app.css
           test -f data/triplets.yaml
           test -f data/presets.yaml
           test -f data/renderer.yaml

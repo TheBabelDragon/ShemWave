@@ -1,0 +1,57 @@
+version: "1.0"
+defaults:
+  mode: lattice
+  spatialFrequency: 1.0
+  waveSpeed: 0.5
+  neighborCoupling: 0.22
+  damping: 0.08
+  nonlinearity: 0.03
+  symmetry: 1.0
+  palette: aurora
+  perturbationStrength: 0.0
+  latticeRows: 8
+  latticeCols: 9
+  stepsPerFrame: 1
+  canvasScale: 1
+
+bounds:
+  spatialFrequency: { min: 0.1, max: 4.0 }
+  waveSpeed: { min: 0.0, max: 2.0 }
+  neighborCoupling: { min: 0.0, max: 0.5 }
+  damping: { min: 0.0, max: 0.4 }
+  nonlinearity: { min: 0.0, max: 0.2 }
+  symmetry: { min: 1.0, max: 8.0 }
+  perturbationStrength: { min: 0.0, max: 5.0 }
+  latticeRows: { min: 4, max: 16 }
+  latticeCols: { min: 4, max: 16 }
+  stepsPerFrame: { min: 1, max: 8 }
+
+modes:
+  - id: lattice
+    label: Lattice amplitude
+  - id: interference
+    label: Interference
+  - id: phase
+    label: Phase topology
+  - id: radial
+    label: Radial harmonics
+
+palettes:
+  aurora: ["#0b1026", "#1b3a4b", "#28a89d", "#a8e6cf", "#f7f3e3"]
+  ocean: ["#001219", "#005f73", "#0a9396", "#94d2bd", "#e9d8a6"]
+  magma: ["#0d0208", "#3c096c", "#7b2cbf", "#e0aaff", "#ff6d00"]
+  spectrum: ["#000000", "#3a0ca3", "#4361ee", "#4cc9f0", "#f72585"]
+  mono: ["#000000", "#222222", "#555555", "#aaaaaa", "#ffffff"]
+
+# Triplet → wave mapping rules (documented, reproducible)
+mapping:
+  # gematria total → base phase (radians): (total % 360) * π/180
+  basePhaseModulo: 360
+  # per-letter frequency ratio: 0.5 + (value / 400) * 1.5  → [0.5, 2.0]
+  freqMin: 0.5
+  freqMax: 2.0
+  gematriaMax: 400
+  # amplitude weight: value / gematriaMax, floor 0.05
+  ampFloor: 0.05
+  # angular offsets for three letters: 0, 2π/3, 4π/3
+  angularStep: 2.0943951023931953  # 2π/3
