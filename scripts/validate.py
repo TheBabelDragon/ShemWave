@@ -84,7 +84,13 @@ def main() -> int:
         if key not in rend:
             errors.append(f"renderer.yaml missing {key}")
 
-    for pulse_key in ("sensitivity", "pulseStrength", "fieldDecay", "refractoryMs"):
+    for pulse_key in (
+        "sensitivity",
+        "pulseStrength",
+        "continuousStrength",
+        "fieldDecay",
+        "refractoryMs",
+    ):
         if pulse_key not in rend.get("defaults", {}):
             errors.append(f"renderer.yaml defaults missing pulse key {pulse_key}")
         if pulse_key not in rend.get("bounds", {}):
@@ -117,7 +123,7 @@ def main() -> int:
     print(f"  triplets: {len(triplets)} (order preserved, duplicates kept)")
     print(f"  presets: {len(presets['presets'])}")
     print(f"  sample gematria[{triplets[0]['letters']}] = {gematria(triplets[0]['letters'])}")
-    print("  pulse modules: present")
+    print("  pulse / continuous-injection modules: present")
     return 0
 
 
