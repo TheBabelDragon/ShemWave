@@ -6,7 +6,6 @@
   <title>ShemWave — YAML-driven wave renderer</title>
   <meta name="description" content="Browser-based cymatic-inspired wave renderer driven by YAML triplet data. Visual mathematical model only." />
   <link rel="stylesheet" href="assets/css/app.css" />
-  <!-- Pin js-yaml from jsDelivr CDN (reputable, version-locked) -->
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"
           crossorigin="anonymous"
           referrerpolicy="no-referrer"></script>
@@ -24,10 +23,22 @@
         <canvas id="canvas" role="img" aria-label="Wave field visualization"></canvas>
       </div>
       <p id="metrics" class="metrics" aria-live="polite"></p>
+      <p id="pulse-diag" class="metrics" aria-live="polite"></p>
       <p id="status" class="status" role="status"></p>
     </section>
 
     <aside class="controls" aria-label="Controls">
+      <fieldset>
+        <legend>Input mode</legend>
+        <label for="input-mode">Mode</label>
+        <select id="input-mode">
+          <option value="manual">Manual / Baseline</option>
+          <option value="continuous">Continuous Audio</option>
+          <option value="pulse">Pulse Injection</option>
+        </select>
+        <p class="hint">Manual = triplet-driven only. Continuous = live level modulates params. Pulse = discrete acoustic events inject into a decaying field.</p>
+      </fieldset>
+
       <fieldset>
         <legend>Triplet</legend>
         <label for="triplet-select">Select triplet</label>
@@ -45,42 +56,49 @@
         <legend>Renderer</legend>
         <label for="ctrl-mode">Mode</label>
         <select id="ctrl-mode"></select>
-
         <label for="ctrl-palette">Palette</label>
         <select id="ctrl-palette"></select>
-
         <label for="ctrl-freq">Spatial frequency <span id="ctrl-freq-val"></span></label>
         <input type="range" id="ctrl-freq" min="0.1" max="4" step="0.05" />
-
         <label for="ctrl-speed">Wave speed <span id="ctrl-speed-val"></span></label>
         <input type="range" id="ctrl-speed" min="0" max="2" step="0.05" />
-
         <label for="ctrl-coupling">Neighbor coupling <span id="ctrl-coupling-val"></span></label>
         <input type="range" id="ctrl-coupling" min="0" max="0.5" step="0.01" />
-
         <label for="ctrl-damping">Damping <span id="ctrl-damping-val"></span></label>
         <input type="range" id="ctrl-damping" min="0" max="0.4" step="0.01" />
-
         <label for="ctrl-symmetry">Symmetry <span id="ctrl-symmetry-val"></span></label>
         <input type="range" id="ctrl-symmetry" min="1" max="8" step="1" />
-
         <label for="ctrl-perturb">Perturbation <span id="ctrl-perturb-val"></span></label>
         <input type="range" id="ctrl-perturb" min="0" max="5" step="0.1" />
+      </fieldset>
+
+      <fieldset id="pulse-controls">
+        <legend>Pulse injection</legend>
+        <label for="ctrl-sensitivity">Sensitivity <span id="ctrl-sensitivity-val"></span></label>
+        <input type="range" id="ctrl-sensitivity" min="0.2" max="3" step="0.1" value="1" />
+        <label for="ctrl-pulse-strength">Pulse strength <span id="ctrl-pulse-strength-val"></span></label>
+        <input type="range" id="ctrl-pulse-strength" min="0.2" max="4" step="0.1" value="1.2" />
+        <label for="ctrl-field-decay">Field decay λ <span id="ctrl-field-decay-val"></span></label>
+        <input type="range" id="ctrl-field-decay" min="0.7" max="0.99" step="0.01" value="0.92" />
+        <label for="ctrl-refractory">Refractory ms <span id="ctrl-refractory-val"></span></label>
+        <input type="range" id="ctrl-refractory" min="50" max="500" step="10" value="180" />
+        <button type="button" id="btn-manual-pulse">Inject Pulse</button>
+        <button type="button" id="btn-clear-field">Clear field</button>
       </fieldset>
 
       <fieldset>
         <legend>Simulation</legend>
         <button type="button" id="btn-pause">Pause</button>
-        <button type="button" id="btn-pulse">Pulse inject</button>
+        <button type="button" id="btn-pulse">Pulse inject (lattice)</button>
       </fieldset>
 
       <fieldset>
         <legend>Audio (local only)</legend>
-        <button type="button" id="btn-mic">Microphone</button>
+        <button type="button" id="btn-mic">Start microphone</button>
         <button type="button" id="btn-mic-stop">Stop audio</button>
         <label for="audio-file">Audio file</label>
         <input type="file" id="audio-file" accept="audio/*" />
-        <p class="hint">Requires HTTPS or localhost for mic. Audio never leaves the browser.</p>
+        <p class="hint">Requires HTTPS or localhost for mic. Audio never leaves the browser. Permission is requested only on explicit Start.</p>
       </fieldset>
 
       <fieldset>
@@ -95,7 +113,7 @@
       <p class="disclaimer">
         This is a visual mathematical model. It does not claim that Hebrew gematria
         or Shem HaMephorash triplets produce experimentally verified physical frequencies.
-        Metrics are simulated quantities, not physical measurements.
+        Metrics and pulse fields are simulated quantities, not physical measurements.
       </p>
     </aside>
   </main>
