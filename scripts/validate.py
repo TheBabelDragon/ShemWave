@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static validation for ShemWave YAML data and mapping rules."""
+"""Static validation for ShemWave YAML data, assets, and pulse modules."""
 
 from __future__ import annotations
 
@@ -84,14 +84,26 @@ def main() -> int:
         if key not in rend:
             errors.append(f"renderer.yaml missing {key}")
 
-    for rel in (
+    for pulse_key in ("sensitivity", "pulseStrength", "fieldDecay", "refractoryMs"):
+        if pulse_key not in rend.get("defaults", {}):
+            errors.append(f"renderer.yaml defaults missing pulse key {pulse_key}")
+        if pulse_key not in rend.get("bounds", {}):
+            errors.append(f"renderer.yaml bounds missing pulse key {pulse_key}")
+
+    required_assets = (
         "index.html",
         "assets/js/app.js",
         "assets/js/gematria.js",
         "assets/js/simulation.js",
         "assets/js/renderer.js",
+        "assets/js/audio.js",
+        "assets/js/export.js",
+        "assets/js/triplets.js",
+        "assets/js/pulse-injection.js",
         "assets/css/app.css",
-    ):
+        "scripts/test_pulse.js",
+    )
+    for rel in required_assets:
         if not (ROOT / rel).exists():
             errors.append(f"missing asset {rel}")
 
@@ -105,6 +117,7 @@ def main() -> int:
     print(f"  triplets: {len(triplets)} (order preserved, duplicates kept)")
     print(f"  presets: {len(presets['presets'])}")
     print(f"  sample gematria[{triplets[0]['letters']}] = {gematria(triplets[0]['letters'])}")
+    print("  pulse modules: present")
     return 0
 
 
