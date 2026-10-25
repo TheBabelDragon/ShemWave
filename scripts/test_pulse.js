@@ -1,4 +1,218 @@
-import { PulseDetector, PersistentField } from '../assets/js/pulse-injection.js';
-const src = atob('LyoqCiAqIE5vZGUtcnVubmFibGUgdGVzdHMgZm9yIFB1bHNlRGV0ZWN0b3IgYW5kIFBlcnNpc3RlbnRGaWVsZC4KICogTm8gbWljcm9waG9uZSByZXF1aXJlZC4gUnVuOiBub2RlIHNjcmlwdHMvdGVzdF9wdWxzZS5qcwogKi8KbGV0IHBhc3NlZCA9IDA7CmxldCBmYWlsZWQgPSAwOwpmdW5jdGlvbiBhc3NlcnQoY29uZCwgbXNnKSB7CiAgaWYgKGNvbmQpIHsgcGFzc2VkICs9IDE7IGNvbnNvbGUubG9nKCcgIE9LICAnLCBtc2cpOyB9CiAgZWxzZSB7IGZhaWxlZCArPSAxOyBjb25zb2xlLmxvZygnICBGQUlMJywgbXNnKTsgfQp9CmZ1bmN0aW9uIHNpbGVuY2UobiA9IDI1NikgeyByZXR1cm4gbmV3IEZsb2F0MzJBcnJheShuKTsgfQpmdW5jdGlvbiB0cmFuc2llbnQobiA9IDI1NiwgYW1wID0gMC44LCB3aWR0aCA9IDgpIHsKICBjb25zdCBvdXQgPSBuZXcgRmxvYXQzMkFycmF5KG4pOwogIGNvbnN0IG1pZCA9IE1hdGguZmxvb3IobiAvIDIpOwogIGZvciAobGV0IGkgPSAwOyBpIDwgd2lkdGg7IGkrKykgb3V0W21pZCArIGldID0gYW1wICogKDEgLSBpIC8gd2lkdGgpOwogIHJldHVybiBvdXQ7Cn0KY29uc29sZS5sb2coJ1B1bHNlRGV0ZWN0b3InKTsKewogIGNvbnN0IGQgPSBuZXcgUHVsc2VEZXRlY3Rvcih7IHRocmVzaG9sZDogMC4wOCwgc2Vuc2l0aXZpdHk6IDEsIHJlZnJhY3RvcnlNczogMTAwLCBub2lzZUZsb29yQWxwaGE6IDAuMDEgfSk7CiAgYXNzZXJ0KGQucHJvY2VzcyhzaWxlbmNlKCkpID09PSBudWxsLCAnc2lsZW5jZSBkb2VzIG5vdCBjcmVhdGUgcHVsc2UnKTsKICBhc3NlcnQoZC5wdWxzZUNvdW50ID09PSAwLCAncHVsc2UgY291bnQgc3RheXMgMCBhZnRlciBzaWxlbmNlJyk7CiAgY29uc3QgcDEgPSBkLnByb2Nlc3ModHJhbnNpZW50KDI1NiwgMC45KSwgMTAwMCk7CiAgYXNzZXJ0KHAxICE9PSBudWxsICYmIHAxLnN0cmVuZ3RoID4gMCwgJ3RyYW5zaWVudCBhYm92ZSB0aHJlc2hvbGQgY3JlYXRlcyBwdWxzZScpOwogIGFzc2VydChkLnB1bHNlQ291bnQgPT09IDEsICdwdWxzZSBjb3VudCBpbmNyZW1lbnRzJyk7CiAgY29uc3QgcDIgPSBkLnByb2Nlc3ModHJhbnNpZW50KDI1NiwgMC45KSwgMTA1MCk7CiAgYXNzZXJ0KHAyID09PSBudWxsLCAncmVmcmFjdG9yeSBzdXBwcmVzc2VzIGR1cGxpY2F0ZSB3aXRoaW4gd2luZG93Jyk7CiAgYXNzZXJ0KGQucHVsc2VDb3VudCA9PT0gMSwgJ3B1bHNlIGNvdW50IHVuY2hhbmdlZCBkdXJpbmcgcmVmcmFjdG9yeScpOwogIGQucHJvY2VzcyhzaWxlbmNlKCksIDExNTApOwogIGQucHJvY2VzcyhzaWxlbmNlKCksIDExNjApOwogIGNvbnN0IHAzID0gZC5wcm9jZXNzKHRyYW5zaWVudCgyNTYsIDAuOSksIDEzMDApOwogIGFzc2VydChwMyAhPT0gbnVsbCwgJ3B1bHNlIGFjY2VwdGVkIGFmdGVyIHJlZnJhY3RvcnkgKyByZS1hcm0nKTsKICBhc3NlcnQoZC5wdWxzZUNvdW50ID09PSAyLCAnc2Vjb25kIHB1bHNlIGNvdW50ZWQnKTsKICBkLnJlc2V0KCk7CiAgZC50aHJlc2hvbGQgPSAwLjI7CiAgZC5zZW5zaXRpdml0eSA9IDAuNTsKICBmb3IgKGxldCB0ID0gMDsgdCA8IDU7IHQrKykgZC5wcm9jZXNzKHNpbGVuY2UoKSwgMjAwMCArIHQpOwogIGNvbnN0IGxvd1NlbnMgPSBkLnByb2Nlc3ModHJhbnNpZW50KDI1NiwgMC4yMiksIDIxMDApOwogIGQucmVzZXQoKTsKICBkLnRocmVzaG9sZCA9IDAuMjsKICBkLnNlbnNpdGl2aXR5ID0gMy4wOwogIGZvciAobGV0IHQgPSAwOyB0IDwgNTsgdCsrKSBkLnByb2Nlc3Moc2lsZW5jZSgpLCAzMDAwICsgdCk7CiAgY29uc3QgaGlnaFNlbnMgPSBkLnByb2Nlc3ModHJhbnNpZW50KDI1NiwgMC4yMiksIDMxMDApOwogIGFzc2VydChoaWdoU2VucyAhPT0gbnVsbCB8fCBsb3dTZW5zID09PSBudWxsLCAnaGlnaGVyIHNlbnNpdGl2aXR5IGlzIGF0IGxlYXN0IGFzIGxpa2VseSB0byBkZXRlY3Qgd2VhayB0cmFuc2llbnQnKTsKICBhc3NlcnQoZC5mb3JjZVB1bHNlKDEpLnN0cmVuZ3RoID09PSAxLCAnZm9yY2VQdWxzZSBhZnRlciBzZW5zaXRpdml0eSBjaGFuZ2UnKTsKICBkLnJlc2V0KCk7CiAgY29uc3QgZm9yY2VkID0gZC5mb3JjZVB1bHNlKDIuNSwgNDAwMCk7CiAgYXNzZXJ0KGZvcmNlZC5zdHJlbmd0aCA9PT0gMi41LCAnZm9yY2VQdWxzZSBzZXRzIHN0cmVuZ3RoJyk7CiAgYXNzZXJ0KGQucHVsc2VDb3VudCA9PT0gMSwgJ2ZvcmNlUHVsc2UgaW5jcmVtZW50cyBjb3VudCBhZnRlciByZXNldCcpOwp9CmNvbnNvbGUubG9nKCdQZXJzaXN0ZW50RmllbGQnKTsKewogIGNvbnN0IGYgPSBuZXcgUGVyc2lzdGVudEZpZWxkKDQsIDQsIHsgZGVjYXk6IDAuNSwgbWF4VmFsdWU6IDUgfSk7CiAgZi5pbmplY3QoMSwgMSwgMi4wKTsKICBhc3NlcnQoZi52YWx1ZXNbZi5pbmRleCgxLCAxKV0gPiAwLCAnaW5qZWN0IHJhaXNlcyBjZWxsJyk7CiAgY29uc3QgZTAgPSBmLmVuZXJneSgpOwogIGYuc3RlcCgpOwogIGFzc2VydChmLmVuZXJneSgpIDwgZTAsICdmaWVsZCBkZWNheXMgb3ZlciB0aW1lJyk7CiAgYXNzZXJ0KGYuaXNCb3VuZGVkKCksICdib3VuZGVkIGFmdGVyIHNpbmdsZSBpbmplY3QnKTsKICBmLmNsZWFyKCk7CiAgYXNzZXJ0KGYuZW5lcmd5KCkgPT09IDAsICdjbGVhciB6ZXJvcyBmaWVsZCcpOwogIGZvciAobGV0IGkgPSAwOyBpIDwgNTA7IGkrKykgZi5pbmplY3QoaSAlIDQsIGkgJSA0LCAzKTsKICBhc3NlcnQoZi5pc0JvdW5kZWQoKSwgJ2JvdW5kZWQgdW5kZXIgcmVwZWF0ZWQgaGlnaC1hbXBsaXR1ZGUgaW5wdXRzJyk7CiAgZi5jbGVhcigpOwogIGYuaW5qZWN0KDAsIDAsIDEpOwogIGYuaW5qZWN0KDIsIDIsIDEpOwogIGNvbnN0IGVNdWx0aSA9IGYuZW5lcmd5KCk7CiAgYXNzZXJ0KGVNdWx0aSA+IDEuNSwgJ211bHRpcGxlIGluamVjdGlvbnMgYWNjdW11bGF0ZScpOwogIGYuc3RlcCgpOwogIGYuc3RlcCgpOwogIGFzc2VydChmLmVuZXJneSgpIDwgZU11bHRpLCAnYWNjdW11bGF0ZWQgZW5lcmd5IHN0aWxsIGRlY2F5cycpOwogIGYuZGVjYXkgPSAwLjk5OwogIGYuY2xlYXIoKTsKICBmLmluamVjdCgxLCAxLCAxKTsKICBjb25zdCBiZWZvcmUgPSBmLmVuZXJneSgpOwogIGYuc3RlcCgpOwogIGFzc2VydChmLmVuZXJneSgpID4gYmVmb3JlICogMC45LCAnaGlnaGVyIGRlY2F5IHJldGFpbnMgbW9yZSBlbmVyZ3knKTsKfQpjb25zb2xlLmxvZygnUHVsc2Ugc3RyZW5ndGggbWFwcGluZycpOwp7CiAgY29uc3QgZCA9IG5ldyBQdWxzZURldGVjdG9yKHsgdGhyZXNob2xkOiAwLjA1LCBzZW5zaXRpdml0eTogMSwgcmVmcmFjdG9yeU1zOiAwLCBub2lzZUZsb29yQWxwaGE6IDAuMDEgfSk7CiAgZm9yIChsZXQgdCA9IDA7IHQgPCAzOyB0KyspIGQucHJvY2VzcyhzaWxlbmNlKCksIHQpOwogIGNvbnN0IHdlYWsgPSBkLnByb2Nlc3ModHJhbnNpZW50KDEyOCwgMC4zKSwgMTApOwogIGQucHJvY2VzcyhzaWxlbmNlKCksIDIwKTsKICBkLnByb2Nlc3Moc2lsZW5jZSgpLCAyMSk7CiAgY29uc3Qgc3Ryb25nID0gZC5wcm9jZXNzKHRyYW5zaWVudCgxMjgsIDAuOTUpLCAzMCk7CiAgaWYgKHdlYWsgJiYgc3Ryb25nKSBhc3NlcnQoc3Ryb25nLnN0cmVuZ3RoID49IHdlYWsuc3RyZW5ndGggKiAwLjg1LCAnc3Ryb25nZXIgdHJhbnNpZW50IG1hcHMgdG8gaGlnaGVyIG9yIGVxdWFsIHN0cmVuZ3RoJyk7CiAgZWxzZSBhc3NlcnQoc3Ryb25nICE9PSBudWxsLCAnc3Ryb25nIHRyYW5zaWVudCBpcyBkZXRlY3RlZCcpOwp9CmNvbnNvbGUubG9nKCdSZXN1bHQ6ICcgKyBwYXNzZWQgKyAnIHBhc3NlZCwgJyArIGZhaWxlZCArICcgZmFpbGVkJyk7CnByb2Nlc3MuZXhpdChmYWlsZWQgPiAwID8gMSA6IDApOw==');
-const fn = new Function('PulseDetector', 'PersistentField', 'console', 'process', 'Float32Array', src);
-fn(PulseDetector, PersistentField, console, process, Float32Array);
+/**
+ * Node-runnable tests for PulseDetector, ContinuousEnvelopeDetector, PersistentField.
+ * No microphone required. Run: node scripts/test_pulse.js
+ */
+import {
+  PulseDetector,
+  ContinuousEnvelopeDetector,
+  PersistentField,
+} from '../assets/js/pulse-injection.js';
+
+let passed = 0;
+let failed = 0;
+
+function assert(cond, msg) {
+  if (cond) {
+    passed += 1;
+    console.log('  OK  ', msg);
+  } else {
+    failed += 1;
+    console.log('  FAIL', msg);
+  }
+}
+
+function silence(n = 256) {
+  return new Float32Array(n);
+}
+
+function tone(n = 256, amp = 0.4) {
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = amp * Math.sin((i / n) * Math.PI * 8);
+  return out;
+}
+
+function transient(n = 256, amp = 0.8, width = 8) {
+  const out = new Float32Array(n);
+  const mid = Math.floor(n / 2);
+  for (let i = 0; i < width; i++) out[mid + i] = amp * (1 - i / width);
+  return out;
+}
+
+function noise(n = 256, amp = 0.01) {
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = (Math.random() * 2 - 1) * amp;
+  return out;
+}
+
+console.log('PulseDetector');
+{
+  const d = new PulseDetector({
+    threshold: 0.08,
+    sensitivity: 1,
+    refractoryMs: 100,
+    noiseFloorAlpha: 0.01,
+  });
+  assert(d.process(silence()) === null, 'silence does not create pulse');
+  assert(d.pulseCount === 0, 'pulse count stays 0 after silence');
+  const p1 = d.process(transient(256, 0.9), 1000);
+  assert(p1 !== null && p1.strength > 0, 'transient above threshold creates pulse');
+  assert(d.pulseCount === 1, 'pulse count increments');
+  const p2 = d.process(transient(256, 0.9), 1050);
+  assert(p2 === null, 'refractory suppresses duplicate within window');
+  assert(d.pulseCount === 1, 'pulse count unchanged during refractory');
+  d.process(silence(), 1150);
+  d.process(silence(), 1160);
+  const p3 = d.process(transient(256, 0.9), 1300);
+  assert(p3 !== null, 'pulse accepted after refractory + re-arm');
+  assert(d.pulseCount === 2, 'second pulse counted');
+  d.reset();
+  d.threshold = 0.2;
+  d.sensitivity = 0.5;
+  for (let t = 0; t < 5; t++) d.process(silence(), 2000 + t);
+  const lowSens = d.process(transient(256, 0.22), 2100);
+  d.reset();
+  d.threshold = 0.2;
+  d.sensitivity = 3.0;
+  for (let t = 0; t < 5; t++) d.process(silence(), 3000 + t);
+  const highSens = d.process(transient(256, 0.22), 3100);
+  assert(
+    highSens !== null || lowSens === null,
+    'higher sensitivity is at least as likely to detect weak transient'
+  );
+  assert(d.forcePulse(1).strength === 1, 'forcePulse after sensitivity change');
+  d.reset();
+  const forced = d.forcePulse(2.5, 4000);
+  assert(forced.strength === 2.5, 'forcePulse sets strength');
+  assert(d.pulseCount === 1, 'forcePulse increments count after reset');
+}
+
+console.log('ContinuousEnvelopeDetector');
+{
+  const e = new ContinuousEnvelopeDetector({
+    sensitivity: 1,
+    noiseFloorAlpha: 0.02,
+    attack: 0.5,
+    release: 0.15,
+    margin: 1.75,
+    headroom: 0.2,
+    minThreshold: 0.02,
+  });
+
+  for (let i = 0; i < 8; i++) e.process(silence());
+  assert(e.lastLevel === 0, 'silence produces zero injection level');
+
+  e.reset();
+  for (let i = 0; i < 12; i++) e.process(noise(256, 0.008));
+  assert(e.lastLevel === 0, 'sub-threshold noise produces zero level');
+
+  e.reset();
+  for (let i = 0; i < 6; i++) e.process(silence());
+  let positiveWindows = 0;
+  for (let i = 0; i < 20; i++) {
+    const lvl = e.process(tone(256, 0.35));
+    if (lvl > 0.05) positiveWindows += 1;
+  }
+  assert(positiveWindows >= 10, 'sustained moderate input stays positive over windows');
+
+  e.reset();
+  for (let i = 0; i < 6; i++) e.process(silence());
+  const levels = [];
+  for (let i = 0; i < 40; i++) levels.push(e.process(tone(256, 0.4)));
+  const late = levels.slice(-10).reduce((a, b) => a + b, 0) / 10;
+  assert(late > 0.15, 'sustained input does not disappear via noise-floor chase');
+
+  e.reset();
+  for (let i = 0; i < 6; i++) e.process(silence());
+  for (let i = 0; i < 12; i++) e.process(tone(256, 0.25));
+  const weakLvl = e.lastLevel;
+  e.reset();
+  for (let i = 0; i < 6; i++) e.process(silence());
+  for (let i = 0; i < 12; i++) e.process(tone(256, 0.7));
+  const strongLvl = e.lastLevel;
+  assert(strongLvl >= weakLvl * 0.9, 'stronger input maps to equal or stronger level');
+
+  e.reset();
+  for (let i = 0; i < 6; i++) e.process(silence());
+  for (let i = 0; i < 15; i++) e.process(tone(256, 0.45));
+  assert(e.lastLevel > 0.1, 'precondition: active before silence release');
+  for (let i = 0; i < 80; i++) e.process(silence());
+  assert(e.lastLevel === 0, 'return to silence eventually reaches zero');
+
+  e.reset();
+  e.process([]);
+  e.process([NaN, Infinity, -Infinity, 1e9, -1e9]);
+  e.process(null);
+  assert(
+    Number.isFinite(e.lastLevel) && e.lastLevel >= 0 && e.lastLevel <= 1,
+    'NaN/Inf/empty/out-of-range stay finite and in [0,1]'
+  );
+  assert(
+    Number.isFinite(e.lastRms) && Number.isFinite(e.noiseFloor),
+    'diagnostics remain finite after bad samples'
+  );
+}
+
+console.log('PersistentField');
+{
+  const f = new PersistentField(4, 4, { decay: 0.5, maxValue: 5 });
+  f.inject(1, 1, 2.0);
+  assert(f.values[f.index(1, 1)] > 0, 'inject raises cell');
+  const e0 = f.energy();
+  f.step();
+  assert(f.energy() < e0, 'field decays over time');
+  assert(f.isBounded(), 'bounded after single inject');
+  f.clear();
+  assert(f.energy() === 0, 'clear zeros field');
+  for (let i = 0; i < 50; i++) f.inject(i % 4, i % 4, 3);
+  assert(f.isBounded(), 'bounded under repeated high-amplitude inputs');
+  f.clear();
+  f.inject(0, 0, 1);
+  f.inject(2, 2, 1);
+  const eMulti = f.energy();
+  assert(eMulti > 1.5, 'multiple injections accumulate');
+  f.step();
+  f.step();
+  assert(f.energy() < eMulti, 'accumulated energy still decays');
+  f.decay = 0.99;
+  f.clear();
+  f.inject(1, 1, 1);
+  const before = f.energy();
+  f.step();
+  assert(f.energy() > before * 0.9, 'higher decay retains more energy');
+
+  f.clear();
+  f.decay = 0.9;
+  f.maxValue = 8;
+  for (let i = 0; i < 200; i++) {
+    f.injectContinuous(0.4);
+    f.step();
+  }
+  assert(f.isBounded(), 'repeated continuous injection remains bounded');
+  assert(f.energy() < f.rows * f.cols * f.maxValue + 1, 'energy below absolute ceiling');
+}
+
+console.log('Pulse strength mapping');
+{
+  const d = new PulseDetector({
+    threshold: 0.05,
+    sensitivity: 1,
+    refractoryMs: 0,
+    noiseFloorAlpha: 0.01,
+  });
+  for (let t = 0; t < 3; t++) d.process(silence(), t);
+  const weak = d.process(transient(128, 0.3), 10);
+  d.process(silence(), 20);
+  d.process(silence(), 21);
+  const strong = d.process(transient(128, 0.95), 30);
+  if (weak && strong) {
+    assert(
+      strong.strength >= weak.strength * 0.85,
+      'stronger transient maps to higher or equal strength'
+    );
+  } else {
+    assert(strong !== null, 'strong transient is detected');
+  }
+}
+
+console.log('Result: ' + passed + ' passed, ' + failed + ' failed');
+process.exit(failed > 0 ? 1 : 0);
