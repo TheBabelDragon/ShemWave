@@ -1,5 +1,7 @@
 /**
  * Canvas rendering modes: lattice, interference, phase, radial.
+ * Drawing uses CSS-pixel logical size; DPR via setTransform.
+ * putImageData paths allocate in device pixels.
  */
 
 function hexToRgb(hex) {
@@ -29,7 +31,7 @@ function lerpColor(palette, t) {
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d', { alpha: false });
     this.mode = 'lattice';
     this.palette = ['#0b1026', '#1b3a4b', '#28a89d', '#a8e6cf', '#f7f3e3'];
     this.spatialFrequency = 1.0;
@@ -37,6 +39,9 @@ export class Renderer {
     this.symmetry = 1.0;
     this.time = 0;
     this.waveParams = null;
+    this.cssW = 0;
+    this.cssH = 0;
+    this.dpr = 1;
   }
 
   setPalette(colors) {
@@ -44,20 +49,30 @@ export class Renderer {
   }
 
   resize(w, h) {
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = Math.floor(w * dpr);
-    this.canvas.height = Math.floor(h * dpr);
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const cssW = Math.max(160, Math.min(Math.floor(w) || 0, 2400));
+    const cssH = Math.max(160, Math.min(Math.floor(h) || 0, 1800));
+    if (cssW === this.cssW && cssH === this.cssH && dpr === this.dpr) return;
+
+    this.cssW = cssW;
+    this.cssH = cssH;
+    this.dpr = dpr;
+    this.canvas.width = Math.floor(cssW * dpr);
+    this.canvas.height = Math.floor(cssH * dpr);
+    this.canvas.style.width = cssW + 'px';
+    this.canvas.style.height = cssH + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  draw(lattice) {
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
+  draw(lattice, field) {
+    const w = this.cssW;
+    const h = this.cssH;
     if (w < 1 || h < 1) return;
+
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.ctx.fillStyle = this.palette[0] || '#000';
     this.ctx.fillRect(0, 0, w, h);
+
     switch (this.mode) {
       case 'interference':
         this._field(w, h, 'interference');
@@ -69,23 +84,38 @@ export class Renderer {
         this._field(w, h, 'radial');
         break;
       default:
-        this._drawLattice(lattice, w, h);
+        this._drawLattice(lattice, w, h, field);
         break;
     }
     this.time += this.waveSpeed * 0.05;
   }
 
-  _drawLattice(lattice, w, h) {
+  _drawLattice(lattice, w, h, field) {
     const amps = lattice.amplitudeGrid();
     let maxA = 1e-9;
     for (let k = 0; k < amps.length; k++) if (amps[k] > maxA) maxA = amps[k];
+
+    let fieldVals = null;
+    let maxF = 1e-9;
+    if (field && field.values && field.values.length === amps.length) {
+      fieldVals = field.values;
+      for (let k = 0; k < fieldVals.length; k++) {
+        const a = Math.abs(fieldVals[k]);
+        if (a > maxF) maxF = a;
+      }
+    }
+
     const cw = w / lattice.cols;
     const ch = h / lattice.rows;
     for (let i = 0; i < lattice.rows; i++) {
       for (let j = 0; j < lattice.cols; j++) {
-        const a = amps[i * lattice.cols + j] / maxA;
-        const c = lerpColor(this.palette, a);
-        this.ctx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+        const k = i * lattice.cols + j;
+        let t = amps[k] / maxA;
+        if (fieldVals) {
+          t = Math.min(1, t + 0.35 * (Math.abs(fieldVals[k]) / maxF));
+        }
+        const c = lerpColor(this.palette, t);
+        this.ctx.fillStyle = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
         this.ctx.fillRect(j * cw, i * ch, cw + 0.5, ch + 0.5);
       }
     }
@@ -99,31 +129,37 @@ export class Renderer {
       for (let j = 0; j < lattice.cols; j++) {
         const t = (phases[i * lattice.cols + j] + Math.PI) / (2 * Math.PI);
         const c = lerpColor(this.palette, t);
-        this.ctx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+        this.ctx.fillStyle = 'rgb(' + c.r + ',' + c.g + ',' + c.b + ')';
         this.ctx.fillRect(j * cw, i * ch, cw + 0.5, ch + 0.5);
       }
     }
   }
 
   _field(w, h, kind) {
-    const img = this.ctx.createImageData(w, h);
+    const dw = this.canvas.width;
+    const dh = this.canvas.height;
+    if (dw < 1 || dh < 1) return;
+
+    const img = this.ctx.createImageData(dw, dh);
     const data = img.data;
-    const comps = this.waveParams?.components || [
+    const comps = this.waveParams && this.waveParams.components ? this.waveParams.components : [
       { freqRatio: 1, amp: 1, phaseOffset: 0 },
       { freqRatio: 1.2, amp: 0.8, phaseOffset: 2.094 },
       { freqRatio: 0.9, amp: 0.7, phaseOffset: 4.189 },
     ];
     const sf = this.spatialFrequency;
     const t = this.time;
-    const cx = w / 2;
-    const cy = h / 2;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
+    const cx = dw / 2;
+    const cy = dh / 2;
+    const minDim = Math.min(dw, dh);
+
+    for (let y = 0; y < dh; y++) {
+      for (let x = 0; x < dw; x++) {
         let v = 0;
         if (kind === 'radial') {
           const dx = x - cx;
           const dy = y - cy;
-          const r = Math.hypot(dx, dy) / Math.min(w, h);
+          const r = Math.hypot(dx, dy) / minDim;
           const ang = Math.atan2(dy, dx);
           for (const c of comps) {
             v += c.amp * Math.sin(
@@ -132,8 +168,8 @@ export class Renderer {
           }
           v /= comps.length;
         } else {
-          const nx = (x / w - 0.5) * 2;
-          const ny = (y / h - 0.5) * 2;
+          const nx = (x / dw - 0.5) * 2;
+          const ny = (y / dh - 0.5) * 2;
           for (const c of comps) {
             const ang = Math.atan2(ny, nx) * this.symmetry + c.phaseOffset;
             const r = Math.hypot(nx, ny);
@@ -142,13 +178,15 @@ export class Renderer {
           v /= comps.length * 1.5;
         }
         const c = lerpColor(this.palette, (v + 1) / 2);
-        const i = (y * w + x) * 4;
+        const i = (y * dw + x) * 4;
         data[i] = c.r;
         data[i + 1] = c.g;
         data[i + 2] = c.b;
         data[i + 3] = 255;
       }
     }
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.putImageData(img, 0, 0);
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 }
