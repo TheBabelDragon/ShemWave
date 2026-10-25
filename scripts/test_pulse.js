@@ -125,11 +125,11 @@ console.log('Pulse strength mapping');
   d.process(silence(), 21);
   const strong = d.process(transient(128, 0.95), 30);
   if (weak && strong) {
-    assert(strong.strength >= weak.strength * 0.85, 'stronger transient → higher or equal strength');
+    assert(strong.strength >= weak.strength * 0.85, 'stronger transient -> higher or equal strength');
   } else {
     assert(strong !== null, 'strong transient is detected');
   }
 }
 
-console.log(`\nResult: ${passed} passed, ${failed} failed`);
+console.log('Result: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
