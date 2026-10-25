@@ -1,23 +1,15 @@
 /**
- * Acoustic pulse detection and persistent field dynamics.
+ * Acoustic pulse detection, continuous envelope, and persistent field dynamics.
  * Detection is pure over sample windows — no microphone required for tests.
  *
  * Field model (visualization only, not physical):
- *   F_{t+1} = λ · F_t + I_t + W_t
- * where λ is decay, I_t is pulse injection, W_t is optional baseline drive.
+ *   F_{t+1} = λ · F_t + I_t
+ * where λ is decay and I_t is discrete pulse or continuous-envelope injection.
  */
 
 /** @typedef {{ strength: number, t: number }} PulseEvent */
 
 export class PulseDetector {
-  /**
-   * @param {object} [opts]
-   * @param {number} [opts.threshold] absolute RMS threshold (0–1 scale)
-   * @param {number} [opts.sensitivity] multiplies adaptive threshold (higher = more sensitive)
-   * @param {number} [opts.refractoryMs] minimum ms between accepted pulses
-   * @param {number} [opts.noiseFloorAlpha] EMA coefficient for noise floor (0–1)
-   * @param {number} [opts.hysteresis] release threshold as fraction of attack threshold
-   */
   constructor(opts = {}) {
     this.threshold = opts.threshold ?? 0.12;
     this.sensitivity = opts.sensitivity ?? 1.0;
@@ -34,12 +26,6 @@ export class PulseDetector {
     this.effectiveThreshold = this.threshold;
   }
 
-  /**
-   * Process a time-domain sample window (Float32Array or number[] in [-1, 1]).
-   * @param {ArrayLike<number>} samples
-   * @param {number} [nowMs] timestamp for refractory (defaults to performance.now())
-   * @returns {PulseEvent|null}
-   */
   process(samples, nowMs) {
     const now = nowMs ?? (typeof performance !== 'undefined' ? performance.now() : Date.now());
     if (!samples || samples.length === 0) {
@@ -50,18 +36,25 @@ export class PulseDetector {
 
     let sumSq = 0;
     let peak = 0;
+    let n = 0;
     for (let i = 0; i < samples.length; i++) {
-      const v = samples[i];
-      const a = v * v;
-      sumSq += a;
+      let v = samples[i];
+      if (!Number.isFinite(v)) continue;
+      v = Math.max(-1, Math.min(1, v));
+      sumSq += v * v;
       const abs = Math.abs(v);
       if (abs > peak) peak = abs;
+      n += 1;
     }
-    const rms = Math.sqrt(sumSq / samples.length);
+    if (n === 0) {
+      this.lastLevel = 0;
+      this.lastRms = 0;
+      return null;
+    }
+    const rms = Math.sqrt(sumSq / n);
     this.lastRms = rms;
     this.lastLevel = peak;
 
-    // Adaptive noise floor (only rises slowly; falls faster when quiet)
     if (rms < this.noiseFloor) {
       this.noiseFloor = this.noiseFloor * 0.9 + rms * 0.1;
     } else {
@@ -87,7 +80,6 @@ export class PulseDetector {
       this.armed = false;
       this.lastPulseAt = now;
       this.pulseCount += 1;
-      // Strength scales with how far above threshold, clipped
       const over = (rms - this.effectiveThreshold) / Math.max(1e-6, this.effectiveThreshold);
       const strength = Math.min(3, 0.4 + over * 1.2);
       return { strength, t: now };
@@ -95,7 +87,6 @@ export class PulseDetector {
     return null;
   }
 
-  /** Force a synthetic pulse (manual inject / tests). */
   forcePulse(strength = 1.0, nowMs) {
     const now = nowMs ?? (typeof performance !== 'undefined' ? performance.now() : Date.now());
     this.lastPulseAt = now;
@@ -127,17 +118,111 @@ export class PulseDetector {
 }
 
 /**
- * Persistent scalar field overlaid on the lattice.
- * Stores one float per lattice cell; decays each step and accepts injections.
+ * Continuous RMS envelope for sustained mic → field injection.
+ * No refractory / onset requirement: steady sound stays active.
+ * Noise floor is calibrated primarily on quiet windows and must not
+ * chase sustained input upward until injection collapses.
  */
+export class ContinuousEnvelopeDetector {
+  constructor(opts = {}) {
+    this.sensitivity = opts.sensitivity ?? 1.0;
+    this.noiseFloorAlpha = opts.noiseFloorAlpha ?? 0.02;
+    this.attack = opts.attack ?? 0.35;
+    this.release = opts.release ?? 0.1;
+    this.margin = opts.margin ?? 1.75;
+    this.headroom = opts.headroom ?? 0.22;
+    this.minThreshold = opts.minThreshold ?? 0.02;
+
+    this.noiseFloor = 0.015;
+    this.envelope = 0;
+    this.lastRms = 0;
+    this.lastLevel = 0;
+    this.threshold = this.minThreshold;
+    this.active = false;
+  }
+
+  process(samples) {
+    if (!samples || samples.length === 0) {
+      return this._smoothToward(0);
+    }
+
+    let sumSq = 0;
+    let n = 0;
+    for (let i = 0; i < samples.length; i++) {
+      let v = samples[i];
+      if (!Number.isFinite(v)) continue;
+      v = Math.max(-1, Math.min(1, v));
+      sumSq += v * v;
+      n += 1;
+    }
+    if (n === 0) {
+      return this._smoothToward(0);
+    }
+
+    const rms = Math.sqrt(sumSq / n);
+    this.lastRms = Number.isFinite(rms) ? rms : 0;
+
+    const sens = Math.max(0.1, this.sensitivity);
+    const quietGate = this.noiseFloor * 1.35;
+    if (!this.active && this.lastRms <= quietGate) {
+      if (this.lastRms < this.noiseFloor) {
+        this.noiseFloor = this.noiseFloor * 0.85 + this.lastRms * 0.15;
+      } else {
+        this.noiseFloor =
+          this.noiseFloor * (1 - this.noiseFloorAlpha) + this.lastRms * this.noiseFloorAlpha;
+      }
+    } else if (!this.active && this.lastRms > quietGate) {
+      this.noiseFloor =
+        this.noiseFloor * (1 - this.noiseFloorAlpha * 0.25) +
+        this.lastRms * (this.noiseFloorAlpha * 0.25);
+    }
+
+    this.threshold = Math.max(
+      this.minThreshold / sens,
+      (this.noiseFloor * this.margin) / sens
+    );
+
+    let raw = 0;
+    if (this.lastRms > this.threshold) {
+      raw = (this.lastRms - this.threshold) / Math.max(1e-6, this.headroom);
+      raw = Math.max(0, Math.min(1, raw));
+    }
+
+    return this._smoothToward(raw);
+  }
+
+  _smoothToward(target) {
+    const t = Number.isFinite(target) ? Math.max(0, Math.min(1, target)) : 0;
+    const coef = t > this.envelope ? this.attack : this.release;
+    this.envelope += (t - this.envelope) * coef;
+    if (!Number.isFinite(this.envelope) || this.envelope < 1e-5) this.envelope = 0;
+    if (this.envelope > 1) this.envelope = 1;
+    this.lastLevel = this.envelope;
+    this.active = this.envelope > 0.02;
+    return this.envelope;
+  }
+
+  reset() {
+    this.noiseFloor = 0.015;
+    this.envelope = 0;
+    this.lastRms = 0;
+    this.lastLevel = 0;
+    this.threshold = this.minThreshold;
+    this.active = false;
+  }
+
+  diagnostics() {
+    return {
+      rms: this.lastRms,
+      noiseFloor: this.noiseFloor,
+      threshold: this.threshold,
+      level: this.lastLevel,
+      active: this.active,
+    };
+  }
+}
+
 export class PersistentField {
-  /**
-   * @param {number} rows
-   * @param {number} cols
-   * @param {object} [opts]
-   * @param {number} [opts.decay] λ in [0, 1); higher = longer persistence
-   * @param {number} [opts.maxValue] hard clip bound
-   */
   constructor(rows = 8, cols = 9, opts = {}) {
     this.rows = rows;
     this.cols = cols;
@@ -148,19 +233,15 @@ export class PersistentField {
   }
 
   index(i, j) {
-    return ((i % this.rows) + this.rows) % this.rows * this.cols +
-      (((j % this.cols) + this.cols) % this.cols);
+    return (
+      (((i % this.rows) + this.rows) % this.rows) * this.cols +
+      (((j % this.cols) + this.cols) % this.cols)
+    );
   }
 
-  /**
-   * Inject energy at a cell (and optionally soft neighbors).
-   * @param {number} i
-   * @param {number} j
-   * @param {number} amount
-   * @param {boolean} [spread]
-   */
   inject(i, j, amount, spread = true) {
     const a = Math.max(-this.maxValue, Math.min(this.maxValue, amount));
+    if (!Number.isFinite(a)) return;
     const k = this.index(i, j);
     this.values[k] = Math.max(-this.maxValue, Math.min(this.maxValue, this.values[k] + a));
     if (spread) {
@@ -175,7 +256,6 @@ export class PersistentField {
     }
   }
 
-  /** Random-cell inject for manual testing. */
   injectRandom(amount) {
     const i = Math.floor(Math.random() * this.rows);
     const j = Math.floor(Math.random() * this.cols);
@@ -183,14 +263,25 @@ export class PersistentField {
     return { i, j };
   }
 
-  /**
-   * One decay step: F ← λ F  (baseline W_t applied by caller if desired).
-   */
+  injectContinuous(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const a = Math.min(this.maxValue * 0.25, amount);
+    const ci = Math.floor(this.rows / 2);
+    const cj = Math.floor(this.cols / 2);
+    for (let i = 0; i < this.rows; i++) {
+      for (let j = 0; j < this.cols; j++) {
+        const d = Math.hypot(i - ci, j - cj);
+        const w = Math.exp(-d * 0.55);
+        this.inject(i, j, a * w * 0.35, false);
+      }
+    }
+  }
+
   step() {
     if (this.paused) return;
-    const λ = this.decay;
+    const lambda = this.decay;
     for (let k = 0; k < this.values.length; k++) {
-      let v = this.values[k] * λ;
+      let v = this.values[k] * lambda;
       if (!Number.isFinite(v)) v = 0;
       if (Math.abs(v) < 1e-8) v = 0;
       if (Math.abs(v) > this.maxValue) v = Math.sign(v) * this.maxValue;
@@ -198,7 +289,6 @@ export class PersistentField {
     }
   }
 
-  /** Apply pulse field into a ComplexLattice (adds to real part). */
   applyToLattice(lattice) {
     if (!lattice || lattice.re.length !== this.values.length) return;
     for (let k = 0; k < this.values.length; k++) {
@@ -223,7 +313,6 @@ export class PersistentField {
     return s;
   }
 
-  /** Bounded check for tests. */
   isBounded() {
     for (let k = 0; k < this.values.length; k++) {
       if (!Number.isFinite(this.values[k])) return false;
