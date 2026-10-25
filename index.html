@@ -39,19 +39,26 @@
     </section>
 
     <aside class="controls" aria-label="Controls">
-      <fieldset>
-        <legend>Input mode</legend>
-        <label for="input-mode">Mode</label>
-        <select id="input-mode">
-          <option value="manual">Manual / Baseline</option>
-          <option value="continuous">Continuous Audio</option>
-          <option value="continuous-inject">Continuous Injection (Mic → Field)</option>
-          <option value="waveform-drive">Waveform Drive</option>
-          <option value="pulse">Pulse Injection</option>
-        </select>
-        <p class="hint">Waveform Drive deforms rendered wave geometry from live waveform + frequency bands. Continuous Audio only modulates params. Continuous Injection drives the persistent field. Pulse is discrete transients.</p>
-      </fieldset>
+      <div class="controls-sticky">
+        <fieldset class="primary">
+          <legend>Input mode</legend>
+          <label for="input-mode">Mode</label>
+          <select id="input-mode">
+            <option value="manual">Manual / Baseline</option>
+            <option value="continuous">Continuous Audio</option>
+            <option value="continuous-inject">Continuous Injection (Mic → Field)</option>
+            <option value="waveform-drive">Waveform Drive</option>
+            <option value="pulse">Pulse Injection</option>
+          </select>
+          <div class="btn-row">
+            <button type="button" class="primary" id="btn-mic">Start mic</button>
+            <button type="button" id="btn-mic-stop">Stop audio</button>
+          </div>
+          <p class="hint">Waveform Drive = geometry. Continuous Audio = params. Continuous Injection = field energy. Pulse = discrete hits.</p>
+        </fieldset>
+      </div>
 
+      <div class="controls-scroll">
       <fieldset>
         <legend>Triplet</legend>
         <label for="triplet-select">Select triplet</label>
@@ -65,8 +72,10 @@
         <button type="button" id="btn-reset">Reset to defaults</button>
       </fieldset>
 
-      <fieldset>
-        <legend>Renderer</legend>
+      <details class="panel" open>
+        <summary>Renderer</summary>
+        <div class="panel-body">
+      <fieldset style="border:none;margin:0;padding:0">
         <label for="ctrl-mode">Mode</label>
         <select id="ctrl-mode"></select>
         <label for="ctrl-palette">Palette</label>
@@ -100,9 +109,13 @@
           <option value="32">32</option>
         </select>
       </fieldset>
+        </div>
+      </details>
 
-      <fieldset id="waveform-controls">
-        <legend>Waveform drive</legend>
+      <details class="panel" open>
+        <summary>Waveform drive</summary>
+        <div class="panel-body">
+      <fieldset id="waveform-controls" style="border:none;margin:0;padding:0">
         <label for="ctrl-wave-disp">Displacement <span id="ctrl-wave-disp-val"></span></label>
         <input type="range" id="ctrl-wave-disp" min="0" max="1.5" step="0.05" value="0.55" />
         <label for="ctrl-freq-resp">Frequency response <span id="ctrl-freq-resp-val"></span></label>
@@ -111,11 +124,15 @@
         <input type="range" id="ctrl-audio-sens" min="0.2" max="3" step="0.1" value="1" />
         <label for="ctrl-audio-smooth">Smoothing <span id="ctrl-audio-smooth-val"></span></label>
         <input type="range" id="ctrl-audio-smooth" min="0.05" max="0.9" step="0.05" value="0.45" />
-        <p class="hint">Best with Interference or Radial renderer modes. Signed waveform displaces the surface; L/M/H bands scale structure.</p>
+        <p class="hint">Best with Interference or Radial. Signed waveform displaces the surface; L/M/H scale structure.</p>
       </fieldset>
+        </div>
+      </details>
 
-      <fieldset id="pulse-controls">
-        <legend>Field injection</legend>
+      <details class="panel">
+        <summary>Field injection</summary>
+        <div class="panel-body">
+      <fieldset id="pulse-controls" style="border:none;margin:0;padding:0">
         <label for="ctrl-sensitivity">Sensitivity <span id="ctrl-sensitivity-val"></span></label>
         <input type="range" id="ctrl-sensitivity" min="0.2" max="3" step="0.1" value="1" />
         <label for="ctrl-pulse-strength">Pulse strength <span id="ctrl-pulse-strength-val"></span></label>
@@ -129,35 +146,35 @@
         <button type="button" id="btn-manual-pulse">Inject Pulse</button>
         <button type="button" id="btn-clear-field">Clear field</button>
       </fieldset>
+        </div>
+      </details>
 
-      <fieldset>
-        <legend>Simulation</legend>
-        <button type="button" id="btn-pause">Pause</button>
-        <button type="button" id="btn-pulse">Pulse inject (lattice)</button>
-      </fieldset>
-
-      <fieldset>
-        <legend>Audio (local only)</legend>
-        <button type="button" id="btn-mic">Start microphone</button>
-        <button type="button" id="btn-mic-stop">Stop audio</button>
+      <details class="panel">
+        <summary>Simulation &amp; export</summary>
+        <div class="panel-body">
+      <fieldset style="border:none;margin:0;padding:0 0 0.5rem">
+        <div class="btn-row">
+          <button type="button" id="btn-pause">Pause</button>
+          <button type="button" id="btn-pulse">Lattice pulse</button>
+        </div>
         <label for="audio-file">Audio file</label>
         <input type="file" id="audio-file" accept="audio/*" />
-        <p class="hint">Requires HTTPS or localhost for mic. Audio never leaves the browser.</p>
-      </fieldset>
-
-      <fieldset>
-        <legend>Export</legend>
-        <button type="button" id="btn-png">Export PNG</button>
-        <button type="button" id="btn-json">Export preset JSON</button>
+        <p class="hint">HTTPS/localhost for mic. Audio stays local.</p>
+        <div class="btn-row">
+          <button type="button" id="btn-png">PNG</button>
+          <button type="button" id="btn-json">JSON</button>
+        </div>
         <button type="button" id="btn-copy">Copy preset</button>
         <label for="preset-import">Import preset JSON</label>
         <input type="file" id="preset-import" accept="application/json,.json" />
       </fieldset>
+        </div>
+      </details>
 
       <p class="disclaimer">
-        This is a visual mathematical model. Metrics and audio-driven fields are simulated
-        quantities, not physical measurements.
+        Visual mathematical model only. Metrics are simulated, not physical measurements.
       </p>
+      </div>
     </aside>
   </main>
 
