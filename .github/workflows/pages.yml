@@ -2,7 +2,7 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main, feat/yaml-static-renderer, fix/github-pages-browser]
+    branches: [main, feat/yaml-static-renderer, fix/github-pages-browser, feat/acoustic-pulse-injection]
   workflow_dispatch:
 
 permissions:
@@ -33,6 +33,7 @@ jobs:
           test -f assets/js/simulation.js
           test -f assets/js/audio.js
           test -f assets/js/export.js
+          test -f assets/js/pulse-injection.js
           test -f assets/css/app.css
           test -f data/triplets.yaml
           test -f data/presets.yaml

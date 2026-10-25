@@ -1,6 +1,15 @@
 /**
- * ShemWave application: YAML-driven static renderer.
+ * ShemWave application: YAML-driven static renderer + acoustic pulse injection.
  * Paths are relative for GitHub Pages subpath compatibility.
+ *
+ * Layers (kept separate):
+ *  - Canonical Hebrew source text (triplets.yaml)
+ *  - Gematria + wave-parameter mapping
+ *  - Baseline renderer configuration
+ *  - Audio feature extraction (AudioInput)
+ *  - Pulse-event detection (PulseDetector)
+ *  - Persistent field state (PersistentField)
+ *  - Canvas rendering (Renderer + ComplexLattice)
  */
 
 import { TripletStore } from './triplets.js';
@@ -9,9 +18,10 @@ import { ComplexLattice } from './simulation.js';
 import { Renderer } from './renderer.js';
 import { AudioInput } from './audio.js';
 import { exportPNG, exportPresetJSON, copyPreset } from './export.js';
+import { PulseDetector, PersistentField } from './pulse-injection.js';
 
-const BASE = new URL('.', import.meta.url); // assets/js/
-const ROOT = new URL('../../', BASE); // site root
+const BASE = new URL('.', import.meta.url);
+const ROOT = new URL('../../', BASE);
 
 function asset(path) {
   return new URL(path, ROOT).href;
@@ -57,8 +67,12 @@ const state = {
   lattice: null,
   renderer: null,
   audio: new AudioInput(),
+  detector: new PulseDetector(),
+  field: null,
+  inputMode: 'manual',
   raf: null,
   reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  pulseStrengthScale: 1.2,
 };
 
 function setStatus(msg, isError = false) {
@@ -80,6 +94,18 @@ function applyParams(p) {
     const pal = state.config?.palettes?.[state.params.palette];
     if (pal) state.renderer.setPalette(pal);
   }
+  if (state.field && state.params.fieldDecay !== undefined) {
+    state.field.decay = state.params.fieldDecay;
+  }
+  if (state.params.sensitivity !== undefined) {
+    state.detector.sensitivity = state.params.sensitivity;
+  }
+  if (state.params.refractoryMs !== undefined) {
+    state.detector.refractoryMs = state.params.refractoryMs;
+  }
+  if (state.params.pulseStrength !== undefined) {
+    state.pulseStrengthScale = state.params.pulseStrength;
+  }
   syncControls();
   if (errors.length) setStatus(errors.join('; '), true);
   return errors;
@@ -96,20 +122,37 @@ function syncControls() {
     symmetry: 'ctrl-symmetry',
     palette: 'ctrl-palette',
     perturbationStrength: 'ctrl-perturb',
+    sensitivity: 'ctrl-sensitivity',
+    pulseStrength: 'ctrl-pulse-strength',
+    fieldDecay: 'ctrl-field-decay',
+    refractoryMs: 'ctrl-refractory',
   };
   for (const [k, id] of Object.entries(map)) {
     const el = document.getElementById(id);
     if (!el || p[k] === undefined) continue;
     el.value = p[k];
     const out = document.getElementById(`${id}-val`);
-    if (out) out.textContent = String(p[k]);
+    if (out) {
+      const n = Number(p[k]);
+      out.textContent = Number.isFinite(n) ? String(+n.toFixed(2)) : String(p[k]);
+    }
   }
+  const modeSel = document.getElementById('input-mode');
+  if (modeSel) modeSel.value = state.inputMode;
 }
 
 function rebuildLattice() {
   const rows = state.params.latticeRows || 8;
   const cols = state.params.latticeCols || 9;
   state.lattice = new ComplexLattice(rows, cols);
+  if (!state.field) {
+    state.field = new PersistentField(rows, cols, {
+      decay: state.params.fieldDecay ?? 0.92,
+    });
+  } else {
+    state.field.resize(rows, cols);
+    state.field.decay = state.params.fieldDecay ?? 0.92;
+  }
   const mapping = state.config.mapping;
   const allParams = state.triplets.triplets.map((t) =>
     tripletToWaveParams(t.letters, mapping)
@@ -127,8 +170,18 @@ function updateMetrics() {
   const m = state.lattice.metrics();
   const el = document.getElementById('metrics');
   if (el) {
+    const fieldE = state.field ? state.field.energy().toFixed(3) : '0';
     el.textContent =
-      `mean ${m.meanIntensity.toFixed(4)} · var ${m.variance.toFixed(4)} · H ${m.entropy.toFixed(4)} (simulated)`;
+      `mean ${m.meanIntensity.toFixed(4)} · var ${m.variance.toFixed(4)} · H ${m.entropy.toFixed(4)} · fieldE ${fieldE} (simulated)`;
+  }
+  const diag = document.getElementById('pulse-diag');
+  if (diag && state.inputMode === 'pulse') {
+    const d = state.detector.diagnostics();
+    diag.textContent =
+      `level ${d.level.toFixed(3)} · rms ${d.rms.toFixed(3)} · thr ${d.threshold.toFixed(3)} · pulses ${d.pulseCount}` +
+      (d.armed ? '' : ' · recovering');
+  } else if (diag) {
+    diag.textContent = '';
   }
 }
 
@@ -136,6 +189,10 @@ function frame() {
   if (!state.lattice || !state.renderer) return;
   const steps = state.params.stepsPerFrame || 1;
   for (let i = 0; i < steps; i++) {
+    if (state.field) {
+      state.field.step();
+      state.field.applyToLattice(state.lattice);
+    }
     state.lattice.step(
       state.params.neighborCoupling ?? 0.22,
       state.params.nonlinearity ?? 0.03,
@@ -150,7 +207,6 @@ function frame() {
 function startLoop() {
   if (state.raf) cancelAnimationFrame(state.raf);
   if (state.reducedMotion) {
-    // draw once
     if (state.lattice && state.renderer) {
       state.renderer.draw(state.lattice);
       updateMetrics();
@@ -200,10 +256,60 @@ function populateModesAndPalettes() {
   }
 }
 
+async function stopAudio() {
+  await state.audio.stop();
+  setStatus('Audio stopped');
+}
+
+function wireAudioForMode() {
+  state.audio.onLevel = null;
+  state.audio.onSamples = null;
+
+  if (state.inputMode === 'continuous') {
+    state.audio.onLevel = (bass, overall) => {
+      applyParams({
+        spatialFrequency: clamp(0.5 + bass * 3, 0.1, 4),
+        perturbationStrength: overall * 3,
+      });
+    };
+  } else if (state.inputMode === 'pulse') {
+    state.audio.onSamples = (samples) => {
+      const evt = state.detector.process(samples);
+      if (evt && state.field) {
+        const amount = evt.strength * state.pulseStrengthScale;
+        state.field.injectRandom(amount);
+        setStatus(`Pulse #${state.detector.pulseCount} strength ${amount.toFixed(2)}`);
+      }
+    };
+  }
+}
+
+function setInputMode(mode) {
+  const prev = state.inputMode;
+  state.inputMode = mode;
+  if (mode === 'manual' && prev !== 'manual') {
+    stopAudio();
+  }
+  wireAudioForMode();
+  syncControls();
+  setStatus(
+    mode === 'manual'
+      ? 'Input: Manual / Baseline (triplet-driven)'
+      : mode === 'continuous'
+        ? 'Input: Continuous Audio — start mic or file'
+        : 'Input: Pulse Injection — start mic, clap or use Inject Pulse'
+  );
+}
+
 function bindControls() {
+  document.getElementById('input-mode')?.addEventListener('change', (e) => {
+    setInputMode(e.target.value);
+  });
+
   document.getElementById('triplet-select')?.addEventListener('change', (e) => {
     state.triplets.select(Number(e.target.value));
     rebuildLattice();
+    state.field?.clear();
     setStatus(`Triplet ${state.triplets.selected.display} (g=${state.triplets.selected.gematria})`);
   });
 
@@ -212,12 +318,15 @@ function bindControls() {
     if (!pr) return;
     applyParams({ ...state.config.defaults, ...pr.params });
     rebuildLattice();
+    state.field?.clear();
     setStatus(`Preset: ${pr.name}`);
   });
 
   document.getElementById('btn-reset')?.addEventListener('click', () => {
     applyParams({ ...state.config.defaults });
     rebuildLattice();
+    state.field?.clear();
+    state.detector.reset();
     setStatus('Reset to defaults');
   });
 
@@ -228,6 +337,10 @@ function bindControls() {
     ['ctrl-damping', 'damping'],
     ['ctrl-symmetry', 'symmetry'],
     ['ctrl-perturb', 'perturbationStrength'],
+    ['ctrl-sensitivity', 'sensitivity'],
+    ['ctrl-pulse-strength', 'pulseStrength'],
+    ['ctrl-field-decay', 'fieldDecay'],
+    ['ctrl-refractory', 'refractoryMs'],
   ];
   for (const [id, key] of continuous) {
     document.getElementById(id)?.addEventListener('input', (e) => {
@@ -236,6 +349,10 @@ function bindControls() {
       if (key === 'perturbationStrength' && v > 0) {
         state.lattice?.inject(0, 0, v * 0.1);
       }
+      if (key === 'fieldDecay' && state.field) state.field.decay = v;
+      if (key === 'sensitivity') state.detector.sensitivity = v;
+      if (key === 'refractoryMs') state.detector.refractoryMs = v;
+      if (key === 'pulseStrength') state.pulseStrengthScale = v;
     });
   }
   document.getElementById('ctrl-mode')?.addEventListener('change', (e) => {
@@ -248,6 +365,7 @@ function bindControls() {
   document.getElementById('btn-pause')?.addEventListener('click', () => {
     if (!state.lattice) return;
     state.lattice.paused = !state.lattice.paused;
+    if (state.field) state.field.paused = state.lattice.paused;
     document.getElementById('btn-pause').textContent = state.lattice.paused
       ? 'Resume'
       : 'Pause';
@@ -259,7 +377,21 @@ function bindControls() {
       Math.floor(Math.random() * (state.lattice.cols || 9)),
       1.5
     );
-    setStatus('Pulse injected');
+    setStatus('Lattice pulse injected');
+  });
+
+  document.getElementById('btn-manual-pulse')?.addEventListener('click', () => {
+    const evt = state.detector.forcePulse(state.pulseStrengthScale);
+    if (state.field) {
+      state.field.injectRandom(evt.strength);
+    }
+    setStatus(`Manual pulse #${state.detector.pulseCount} strength ${evt.strength.toFixed(2)}`);
+  });
+
+  document.getElementById('btn-clear-field')?.addEventListener('click', () => {
+    state.field?.clear();
+    state.detector.reset();
+    setStatus('Pulse field cleared');
   });
 
   document.getElementById('btn-png')?.addEventListener('click', async () => {
@@ -303,21 +435,19 @@ function bindControls() {
   document.getElementById('btn-mic')?.addEventListener('click', async () => {
     try {
       await state.audio.startMic();
-      state.audio.onLevel = (bass, overall) => {
-        applyParams({
-          spatialFrequency: clamp(0.5 + bass * 3, 0.1, 4),
-          perturbationStrength: overall * 3,
-        });
-      };
-      setStatus('Microphone active (local only)');
+      wireAudioForMode();
+      setStatus(
+        state.inputMode === 'pulse'
+          ? 'Microphone active — pulse mode (local only)'
+          : 'Microphone active — continuous mode (local only)'
+      );
     } catch (e) {
       setStatus(`Mic: ${e.message}`, true);
     }
   });
 
   document.getElementById('btn-mic-stop')?.addEventListener('click', async () => {
-    await state.audio.stop();
-    setStatus('Audio stopped');
+    await stopAudio();
   });
 
   document.getElementById('audio-file')?.addEventListener('change', async (e) => {
@@ -325,12 +455,7 @@ function bindControls() {
     if (!file) return;
     try {
       await state.audio.startFile(file);
-      state.audio.onLevel = (bass, overall) => {
-        applyParams({
-          spatialFrequency: clamp(0.5 + bass * 3, 0.1, 4),
-          perturbationStrength: overall * 3,
-        });
-      };
+      wireAudioForMode();
       setStatus(`Playing ${file.name} (local only)`);
     } catch (err) {
       setStatus(`Audio file: ${err.message}`, true);
@@ -339,9 +464,8 @@ function bindControls() {
 
   window.addEventListener('beforeunload', () => state.audio.stop());
   window.addEventListener('resize', () => {
-    const canvas = document.getElementById('canvas');
     const wrap = document.getElementById('canvas-wrap');
-    if (canvas && wrap && state.renderer) {
+    if (wrap && state.renderer) {
       state.renderer.resize(wrap.clientWidth, wrap.clientHeight);
     }
   });
@@ -368,7 +492,13 @@ async function main() {
 
     state.config = rendererData;
     state.presets = presetData.presets || [];
-    state.params = { ...rendererData.defaults };
+    state.params = {
+      ...rendererData.defaults,
+      sensitivity: rendererData.defaults.sensitivity ?? 1.0,
+      pulseStrength: rendererData.defaults.pulseStrength ?? 1.2,
+      fieldDecay: rendererData.defaults.fieldDecay ?? 0.92,
+      refractoryMs: rendererData.defaults.refractoryMs ?? 180,
+    };
 
     const canvas = document.getElementById('canvas');
     const wrap = document.getElementById('canvas-wrap');
