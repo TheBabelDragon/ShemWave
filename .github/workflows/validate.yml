@@ -2,7 +2,12 @@ name: Validate
 
 on:
   push:
-    branches: [main, feat/yaml-static-renderer, fix/github-pages-browser, feat/acoustic-pulse-injection]
+    branches:
+      - main
+      - feat/yaml-static-renderer
+      - fix/github-pages-browser
+      - feat/acoustic-pulse-injection
+      - feat/mic-continuous-injection
   pull_request:
 
 jobs:
@@ -21,5 +26,5 @@ jobs:
       - name: Validate YAML and assets
         run: python scripts/validate.py
 
-      - name: Run pulse unit tests
+      - name: Run pulse / envelope unit tests
         run: node scripts/test_pulse.js
