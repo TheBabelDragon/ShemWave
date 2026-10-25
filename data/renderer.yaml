@@ -13,6 +13,10 @@ defaults:
   latticeCols: 9
   stepsPerFrame: 1
   canvasScale: 1
+  sensitivity: 1.0
+  pulseStrength: 1.2
+  fieldDecay: 0.92
+  refractoryMs: 180
 
 bounds:
   spatialFrequency: { min: 0.1, max: 4.0 }
@@ -25,6 +29,10 @@ bounds:
   latticeRows: { min: 4, max: 16 }
   latticeCols: { min: 4, max: 16 }
   stepsPerFrame: { min: 1, max: 8 }
+  sensitivity: { min: 0.2, max: 3.0 }
+  pulseStrength: { min: 0.2, max: 4.0 }
+  fieldDecay: { min: 0.7, max: 0.99 }
+  refractoryMs: { min: 50, max: 500 }
 
 modes:
   - id: lattice
@@ -43,15 +51,10 @@ palettes:
   spectrum: ["#000000", "#3a0ca3", "#4361ee", "#4cc9f0", "#f72585"]
   mono: ["#000000", "#222222", "#555555", "#aaaaaa", "#ffffff"]
 
-# Triplet → wave mapping rules (documented, reproducible)
 mapping:
-  # gematria total → base phase (radians): (total % 360) * π/180
   basePhaseModulo: 360
-  # per-letter frequency ratio: 0.5 + (value / 400) * 1.5  → [0.5, 2.0]
   freqMin: 0.5
   freqMax: 2.0
   gematriaMax: 400
-  # amplitude weight: value / gematriaMax, floor 0.05
   ampFloor: 0.05
-  # angular offsets for three letters: 0, 2π/3, 4π/3
-  angularStep: 2.0943951023931953  # 2π/3
+  angularStep: 2.0943951023931953
