@@ -1,5 +1,5 @@
 /**
- * ShemWave application: YAML-driven static renderer + acoustic field injection.
+ * ShemWave application: YAML-driven static renderer + acoustic field injection + waveform drive.
  * Paths are relative for GitHub Pages subpath compatibility.
  */
 
@@ -14,6 +14,7 @@ import {
   ContinuousEnvelopeDetector,
   PersistentField,
 } from './pulse-injection.js';
+import { AudioFeatureExtractor } from './audio-features.js';
 
 const BASE = new URL('.', import.meta.url);
 const ROOT = new URL('../../', BASE);
@@ -69,6 +70,8 @@ const state = {
   continuousStrength: 0.6,
   continuousLevel: 0,
   lastContinuousInjectAt: 0,
+  features: new AudioFeatureExtractor(),
+  audioActive: false,
 };
 
 function setStatus(msg, isError) {
@@ -107,6 +110,24 @@ function applyParams(p) {
   if (state.params.continuousStrength !== undefined) {
     state.continuousStrength = state.params.continuousStrength;
   }
+  if (state.params.audioSensitivity !== undefined) {
+    state.features.sensitivity = state.params.audioSensitivity;
+  }
+  if (state.params.audioSmoothing !== undefined) {
+    const s = state.params.audioSmoothing;
+    state.features.attack = 0.15 + (1 - s) * 0.5;
+    state.features.release = 0.05 + (1 - s) * 0.25;
+    state.features.bandSmoothing = 0.1 + s * 0.35;
+  }
+  if (state.renderer) {
+    const drive = state.inputMode === 'waveform-drive';
+    state.renderer.setAudioDrive(
+      state.features,
+      drive,
+      state.params.waveformDisplacement ?? 0.55,
+      state.params.frequencyResponse ?? 0.55
+    );
+  }
   syncControls();
   if (errors.length) setStatus(errors.join('; '), true);
   return errors;
@@ -128,6 +149,12 @@ function syncControls() {
     continuousStrength: 'ctrl-continuous-strength',
     fieldDecay: 'ctrl-field-decay',
     refractoryMs: 'ctrl-refractory',
+    waveformDisplacement: 'ctrl-wave-disp',
+    frequencyResponse: 'ctrl-freq-resp',
+    audioSensitivity: 'ctrl-audio-sens',
+    audioSmoothing: 'ctrl-audio-smooth',
+    latticeRows: 'ctrl-lattice-rows',
+    latticeCols: 'ctrl-lattice-cols',
   };
   for (const [k, id] of Object.entries(map)) {
     const el = document.getElementById(id);
@@ -144,8 +171,8 @@ function syncControls() {
 }
 
 function rebuildLattice() {
-  const rows = state.params.latticeRows || 8;
-  const cols = state.params.latticeCols || 9;
+  const rows = state.params.latticeRows || 16;
+  const cols = state.params.latticeCols || 16;
   state.lattice = new ComplexLattice(rows, cols);
   if (!state.field) {
     state.field = new PersistentField(rows, cols, {
@@ -174,45 +201,38 @@ function updateMetrics() {
   if (el) {
     const fieldE = state.field ? state.field.energy().toFixed(3) : '0';
     el.textContent =
-      'mean ' +
-      m.meanIntensity.toFixed(4) +
-      ' · var ' +
-      m.variance.toFixed(4) +
-      ' · H ' +
-      m.entropy.toFixed(4) +
-      ' · fieldE ' +
-      fieldE +
-      ' (simulated)';
+      'mean ' + m.meanIntensity.toFixed(4) +
+      ' · var ' + m.variance.toFixed(4) +
+      ' · H ' + m.entropy.toFixed(4) +
+      ' · fieldE ' + fieldE + ' (simulated)';
   }
   const diag = document.getElementById('pulse-diag');
   if (!diag) return;
   if (state.inputMode === 'pulse') {
     const d = state.detector.diagnostics();
     diag.textContent =
-      'level ' +
-      d.level.toFixed(3) +
-      ' · rms ' +
-      d.rms.toFixed(3) +
-      ' · thr ' +
-      d.threshold.toFixed(3) +
-      ' · pulses ' +
-      d.pulseCount +
+      'level ' + d.level.toFixed(3) +
+      ' · rms ' + d.rms.toFixed(3) +
+      ' · thr ' + d.threshold.toFixed(3) +
+      ' · pulses ' + d.pulseCount +
       (d.armed ? '' : ' · recovering');
   } else if (state.inputMode === 'continuous-inject') {
     const d = state.envelope.diagnostics();
     const fieldE = state.field ? state.field.energy().toFixed(3) : '0';
     diag.textContent =
-      'rms ' +
-      d.rms.toFixed(3) +
-      ' · floor ' +
-      d.noiseFloor.toFixed(4) +
-      ' · thr ' +
-      d.threshold.toFixed(3) +
-      ' · inj ' +
-      d.level.toFixed(3) +
-      ' · fieldE ' +
-      fieldE +
+      'rms ' + d.rms.toFixed(3) +
+      ' · floor ' + d.noiseFloor.toFixed(4) +
+      ' · thr ' + d.threshold.toFixed(3) +
+      ' · inj ' + d.level.toFixed(3) +
+      ' · fieldE ' + fieldE +
       (d.active ? ' · active' : ' · idle');
+  } else if (state.inputMode === 'waveform-drive') {
+    const d = state.features.diagnostics();
+    diag.textContent =
+      'env ' + d.envelope.toFixed(3) +
+      ' · rms ' + d.rms.toFixed(3) +
+      ' · L/M/H ' + d.low.toFixed(2) + '/' + d.mid.toFixed(2) + '/' + d.high.toFixed(2) +
+      (state.audioActive ? ' · live' : ' · idle');
   } else {
     diag.textContent = '';
   }
@@ -233,13 +253,81 @@ function applyContinuousInjection(now) {
   }
 }
 
+function drawScope(canvas, waveform) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = canvas.clientWidth || 200;
+  const h = canvas.clientHeight || 40;
+  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0a0c10';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#28a89d';
+  ctx.lineWidth = 1.25;
+  ctx.beginPath();
+  const n = waveform.length || 1;
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1 || 1)) * w;
+    const y = h * 0.5 - waveform[i] * h * 0.42;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function drawSpectrum(canvas, features) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = canvas.clientWidth || 200;
+  const h = canvas.clientHeight || 40;
+  if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0a0c10';
+  ctx.fillRect(0, 0, w, h);
+  const bands = [
+    { v: features.low, c: '#4cc9f0' },
+    { v: features.mid, c: '#28a89d' },
+    { v: features.high, c: '#e0aaff' },
+  ];
+  const gap = 4;
+  const bw = (w - gap * 4) / 3;
+  bands.forEach((b, i) => {
+    const bh = Math.max(2, b.v * (h - 6));
+    ctx.fillStyle = b.c;
+    ctx.fillRect(gap + i * (bw + gap), h - bh - 2, bw, bh);
+  });
+}
+
+function updateAudioMeters() {
+  const scope = document.getElementById('scope-canvas');
+  const spec = document.getElementById('spec-canvas');
+  const badge = document.getElementById('audio-badge');
+  if (badge) {
+    if (state.audio.active) {
+      badge.textContent = 'Audio: live';
+      badge.dataset.state = 'live';
+    } else if (state.inputMode === 'manual') {
+      badge.textContent = 'Audio: off';
+      badge.dataset.state = 'off';
+    } else {
+      badge.textContent = 'Audio: idle';
+      badge.dataset.state = 'idle';
+    }
+  }
+  if (scope) drawScope(scope, state.features.waveform);
+  if (spec) drawSpectrum(spec, state.features);
+}
+
 function frame() {
   if (!state.lattice || !state.renderer) return;
-  const now =
-    typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (state.inputMode === 'continuous-inject') {
-    applyContinuousInjection(now);
-  }
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (state.inputMode === 'continuous-inject') applyContinuousInjection(now);
   const steps = state.params.stepsPerFrame || 1;
   for (let i = 0; i < steps; i++) {
     if (state.field) state.field.step();
@@ -249,8 +337,16 @@ function frame() {
       state.params.damping ?? 0.08
     );
   }
+  const drive = state.inputMode === 'waveform-drive';
+  state.renderer.setAudioDrive(
+    state.features,
+    drive,
+    state.params.waveformDisplacement ?? 0.55,
+    state.params.frequencyResponse ?? 0.55
+  );
   state.renderer.draw(state.lattice, state.field);
   updateMetrics();
+  updateAudioMeters();
   state.raf = requestAnimationFrame(frame);
 }
 
@@ -320,12 +416,16 @@ async function stopAudio() {
   await state.audio.stop();
   state.continuousLevel = 0;
   state.envelope.reset();
+  state.features.reset();
+  state.audioActive = false;
+  if (state.renderer) state.renderer.setAudioDrive(state.features, false);
   setStatus('Audio stopped');
 }
 
 function wireAudioForMode() {
   state.audio.onLevel = null;
   state.audio.onSamples = null;
+  state.audio.onFeatures = null;
   state.continuousLevel = 0;
 
   if (state.inputMode === 'continuous') {
@@ -355,14 +455,17 @@ function wireAudioForMode() {
             amount
           );
         }
-        setStatus(
-          'Pulse #' + state.detector.pulseCount + ' strength ' + amount.toFixed(2)
-        );
+        setStatus('Pulse #' + state.detector.pulseCount + ' strength ' + amount.toFixed(2));
       }
     };
   } else if (state.inputMode === 'continuous-inject') {
     state.audio.onSamples = (samples) => {
       state.continuousLevel = state.envelope.process(samples);
+    };
+  } else if (state.inputMode === 'waveform-drive') {
+    state.audio.onFeatures = (timeData, freqData) => {
+      state.features.process(timeData, freqData);
+      state.audioActive = true;
     };
   }
 }
@@ -378,23 +481,25 @@ function setInputMode(mode) {
     state.continuousLevel = 0;
     state.envelope.reset();
   }
+  if (prev === 'waveform-drive' && mode !== 'waveform-drive') {
+    state.features.reset();
+    if (state.renderer) state.renderer.setAudioDrive(state.features, false);
+  }
   wireAudioForMode();
   syncControls();
   const msgs = {
     manual: 'Input: Manual / Baseline (triplet-driven)',
     continuous: 'Input: Continuous Audio — start mic or file (modulates params)',
     pulse: 'Input: Pulse Injection — discrete transients into field',
-    'continuous-inject':
-      'Input: Continuous Injection — sustained mic level drives field',
+    'continuous-inject': 'Input: Continuous Injection — sustained mic level drives field',
+    'waveform-drive': 'Input: Waveform Drive — wave geometry follows mic waveform + bands',
   };
   setStatus(msgs[mode] || 'Input mode: ' + mode);
 }
 
 function bindControls() {
   const inputMode = document.getElementById('input-mode');
-  if (inputMode) {
-    inputMode.addEventListener('change', (e) => setInputMode(e.target.value));
-  }
+  if (inputMode) inputMode.addEventListener('change', (e) => setInputMode(e.target.value));
 
   const tripletSel = document.getElementById('triplet-select');
   if (tripletSel) {
@@ -402,13 +507,7 @@ function bindControls() {
       state.triplets.select(Number(e.target.value));
       rebuildLattice();
       state.field && state.field.clear();
-      setStatus(
-        'Triplet ' +
-          state.triplets.selected.display +
-          ' (g=' +
-          state.triplets.selected.gematria +
-          ')'
-      );
+      setStatus('Triplet ' + state.triplets.selected.display + ' (g=' + state.triplets.selected.gematria + ')');
     });
   }
 
@@ -432,6 +531,7 @@ function bindControls() {
       state.field && state.field.clear();
       state.detector.reset();
       state.envelope.reset();
+      state.features.reset();
       state.continuousLevel = 0;
       setStatus('Reset to defaults');
     });
@@ -449,6 +549,10 @@ function bindControls() {
     ['ctrl-continuous-strength', 'continuousStrength'],
     ['ctrl-field-decay', 'fieldDecay'],
     ['ctrl-refractory', 'refractoryMs'],
+    ['ctrl-wave-disp', 'waveformDisplacement'],
+    ['ctrl-freq-resp', 'frequencyResponse'],
+    ['ctrl-audio-sens', 'audioSensitivity'],
+    ['ctrl-audio-smooth', 'audioSmoothing'],
   ];
   for (const [id, key] of continuous) {
     const el = document.getElementById(id);
@@ -456,9 +560,7 @@ function bindControls() {
     el.addEventListener('input', (e) => {
       const v = Number(e.target.value);
       applyParams({ [key]: v });
-      if (key === 'perturbationStrength' && v > 0) {
-        state.lattice && state.lattice.inject(0, 0, v * 0.1);
-      }
+      if (key === 'perturbationStrength' && v > 0) state.lattice && state.lattice.inject(0, 0, v * 0.1);
       if (key === 'fieldDecay' && state.field) state.field.decay = v;
       if (key === 'sensitivity') {
         state.detector.sensitivity = v;
@@ -470,14 +572,21 @@ function bindControls() {
     });
   }
 
+  for (const id of ['ctrl-lattice-rows', 'ctrl-lattice-cols']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('change', (e) => {
+      const key = id === 'ctrl-lattice-rows' ? 'latticeRows' : 'latticeCols';
+      applyParams({ [key]: Number(e.target.value) });
+      rebuildLattice();
+      setStatus('Grid ' + (state.params.latticeRows || 16) + '\u00d7' + (state.params.latticeCols || 16));
+    });
+  }
+
   const ctrlMode = document.getElementById('ctrl-mode');
-  if (ctrlMode) {
-    ctrlMode.addEventListener('change', (e) => applyParams({ mode: e.target.value }));
-  }
+  if (ctrlMode) ctrlMode.addEventListener('change', (e) => applyParams({ mode: e.target.value }));
   const ctrlPal = document.getElementById('ctrl-palette');
-  if (ctrlPal) {
-    ctrlPal.addEventListener('change', (e) => applyParams({ palette: e.target.value }));
-  }
+  if (ctrlPal) ctrlPal.addEventListener('change', (e) => applyParams({ palette: e.target.value }));
 
   const btnPause = document.getElementById('btn-pause');
   if (btnPause) {
@@ -516,12 +625,7 @@ function bindControls() {
           evt.strength
         );
       }
-      setStatus(
-        'Manual pulse #' +
-          state.detector.pulseCount +
-          ' strength ' +
-          evt.strength.toFixed(2)
-      );
+      setStatus('Manual pulse #' + state.detector.pulseCount + ' strength ' + evt.strength.toFixed(2));
     });
   }
 
@@ -531,6 +635,7 @@ function bindControls() {
       state.field && state.field.clear();
       state.detector.reset();
       state.envelope.reset();
+      state.features.reset();
       state.continuousLevel = 0;
       setStatus('Pulse field cleared');
     });
@@ -590,13 +695,14 @@ function bindControls() {
       try {
         await state.audio.startMic();
         wireAudioForMode();
-        const label =
-          state.inputMode === 'pulse'
-            ? 'Microphone active — pulse mode (local only)'
-            : state.inputMode === 'continuous-inject'
-              ? 'Microphone active — continuous injection (local only)'
-              : 'Microphone active — continuous audio (local only)';
-        setStatus(label);
+        state.audioActive = true;
+        const labels = {
+          pulse: 'Microphone active — pulse mode (local only)',
+          'continuous-inject': 'Microphone active — continuous injection (local only)',
+          'waveform-drive': 'Microphone active — waveform drive (local only)',
+          continuous: 'Microphone active — continuous audio (local only)',
+        };
+        setStatus(labels[state.inputMode] || 'Microphone active (local only)');
       } catch (e) {
         setStatus('Mic: ' + e.message, true);
       }
@@ -604,11 +710,7 @@ function bindControls() {
   }
 
   const btnMicStop = document.getElementById('btn-mic-stop');
-  if (btnMicStop) {
-    btnMicStop.addEventListener('click', async () => {
-      await stopAudio();
-    });
-  }
+  if (btnMicStop) btnMicStop.addEventListener('click', async () => { await stopAudio(); });
 
   const audioFile = document.getElementById('audio-file');
   if (audioFile) {
@@ -618,6 +720,7 @@ function bindControls() {
       try {
         await state.audio.startFile(file);
         wireAudioForMode();
+        state.audioActive = true;
         setStatus('Playing ' + file.name + ' (local only)');
       } catch (err) {
         setStatus('Audio file: ' + err.message, true);
@@ -649,10 +752,7 @@ async function main() {
       setStatus('Triplet errors: ' + state.triplets.errors.join('; '), true);
     }
     if (state.triplets.length !== 72) {
-      setStatus(
-        'Expected 72 triplets, loaded ' + state.triplets.length,
-        state.triplets.length === 0
-      );
+      setStatus('Expected 72 triplets, loaded ' + state.triplets.length, state.triplets.length === 0);
     }
 
     state.config = rendererData;
@@ -664,8 +764,15 @@ async function main() {
       continuousStrength: rendererData.defaults.continuousStrength ?? 0.6,
       fieldDecay: rendererData.defaults.fieldDecay ?? 0.92,
       refractoryMs: rendererData.defaults.refractoryMs ?? 180,
+      waveformDisplacement: rendererData.defaults.waveformDisplacement ?? 0.55,
+      frequencyResponse: rendererData.defaults.frequencyResponse ?? 0.55,
+      audioSensitivity: rendererData.defaults.audioSensitivity ?? 1.0,
+      audioSmoothing: rendererData.defaults.audioSmoothing ?? 0.45,
+      latticeRows: rendererData.defaults.latticeRows ?? 16,
+      latticeCols: rendererData.defaults.latticeCols ?? 16,
     };
     state.continuousStrength = state.params.continuousStrength;
+    state.features.sensitivity = state.params.audioSensitivity;
 
     const canvas = document.getElementById('canvas');
     state.renderer = new Renderer(canvas);
@@ -680,9 +787,9 @@ async function main() {
     startLoop();
 
     setStatus(
-      'Loaded ' +
-        state.triplets.length +
-        ' triplets · YAML is source of truth · simulated quantities only'
+      'Loaded ' + state.triplets.length +
+        ' triplets · grid ' + (state.params.latticeRows || 16) + '×' + (state.params.latticeCols || 16) +
+        ' · simulated quantities only'
     );
   } catch (e) {
     console.error(e);

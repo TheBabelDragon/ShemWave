@@ -22,6 +22,17 @@
       <div id="canvas-wrap">
         <canvas id="canvas" role="img" aria-label="Wave field visualization"></canvas>
       </div>
+      <div class="audio-meters" aria-label="Audio meters">
+        <div class="meter-block">
+          <span class="meter-label">Waveform</span>
+          <canvas id="scope-canvas" class="meter-canvas" height="40"></canvas>
+        </div>
+        <div class="meter-block">
+          <span class="meter-label">Bands L/M/H</span>
+          <canvas id="spec-canvas" class="meter-canvas" height="40"></canvas>
+        </div>
+        <span id="audio-badge" class="audio-badge" data-state="off">Audio: off</span>
+      </div>
       <p id="metrics" class="metrics" aria-live="polite"></p>
       <p id="pulse-diag" class="metrics" aria-live="polite"></p>
       <p id="status" class="status" role="status"></p>
@@ -35,9 +46,10 @@
           <option value="manual">Manual / Baseline</option>
           <option value="continuous">Continuous Audio</option>
           <option value="continuous-inject">Continuous Injection (Mic → Field)</option>
+          <option value="waveform-drive">Waveform Drive</option>
           <option value="pulse">Pulse Injection</option>
         </select>
-        <p class="hint">Manual = triplet baseline. Continuous Audio = live level modulates renderer params. Continuous Injection = sustained mic envelope drives the simulated field. Pulse = discrete transients only.</p>
+        <p class="hint">Waveform Drive deforms rendered wave geometry from live waveform + frequency bands. Continuous Audio only modulates params. Continuous Injection drives the persistent field. Pulse is discrete transients.</p>
       </fieldset>
 
       <fieldset>
@@ -71,6 +83,35 @@
         <input type="range" id="ctrl-symmetry" min="1" max="8" step="1" />
         <label for="ctrl-perturb">Perturbation <span id="ctrl-perturb-val"></span></label>
         <input type="range" id="ctrl-perturb" min="0" max="5" step="0.1" />
+        <label for="ctrl-lattice-rows">Lattice rows</label>
+        <select id="ctrl-lattice-rows">
+          <option value="8">8</option>
+          <option value="12">12</option>
+          <option value="16" selected>16</option>
+          <option value="24">24</option>
+          <option value="32">32</option>
+        </select>
+        <label for="ctrl-lattice-cols">Lattice cols</label>
+        <select id="ctrl-lattice-cols">
+          <option value="8">8</option>
+          <option value="12">12</option>
+          <option value="16" selected>16</option>
+          <option value="24">24</option>
+          <option value="32">32</option>
+        </select>
+      </fieldset>
+
+      <fieldset id="waveform-controls">
+        <legend>Waveform drive</legend>
+        <label for="ctrl-wave-disp">Displacement <span id="ctrl-wave-disp-val"></span></label>
+        <input type="range" id="ctrl-wave-disp" min="0" max="1.5" step="0.05" value="0.55" />
+        <label for="ctrl-freq-resp">Frequency response <span id="ctrl-freq-resp-val"></span></label>
+        <input type="range" id="ctrl-freq-resp" min="0" max="1.5" step="0.05" value="0.55" />
+        <label for="ctrl-audio-sens">Audio sensitivity <span id="ctrl-audio-sens-val"></span></label>
+        <input type="range" id="ctrl-audio-sens" min="0.2" max="3" step="0.1" value="1" />
+        <label for="ctrl-audio-smooth">Smoothing <span id="ctrl-audio-smooth-val"></span></label>
+        <input type="range" id="ctrl-audio-smooth" min="0.05" max="0.9" step="0.05" value="0.45" />
+        <p class="hint">Best with Interference or Radial renderer modes. Signed waveform displaces the surface; L/M/H bands scale structure.</p>
       </fieldset>
 
       <fieldset id="pulse-controls">
@@ -87,7 +128,6 @@
         <input type="range" id="ctrl-refractory" min="50" max="500" step="10" value="180" />
         <button type="button" id="btn-manual-pulse">Inject Pulse</button>
         <button type="button" id="btn-clear-field">Clear field</button>
-        <p class="hint">Continuous Injection uses sensitivity + continuous field strength + decay. Pulse mode also uses pulse strength and refractory.</p>
       </fieldset>
 
       <fieldset>
@@ -102,7 +142,7 @@
         <button type="button" id="btn-mic-stop">Stop audio</button>
         <label for="audio-file">Audio file</label>
         <input type="file" id="audio-file" accept="audio/*" />
-        <p class="hint">Requires HTTPS or localhost for mic. Audio never leaves the browser. Permission is requested only on explicit Start.</p>
+        <p class="hint">Requires HTTPS or localhost for mic. Audio never leaves the browser.</p>
       </fieldset>
 
       <fieldset>
@@ -115,9 +155,8 @@
       </fieldset>
 
       <p class="disclaimer">
-        This is a visual mathematical model. It does not claim that Hebrew gematria
-        or Shem HaMephorash triplets produce experimentally verified physical frequencies.
-        Metrics and injection fields are simulated quantities, not physical measurements.
+        This is a visual mathematical model. Metrics and audio-driven fields are simulated
+        quantities, not physical measurements.
       </p>
     </aside>
   </main>

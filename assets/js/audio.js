@@ -1,7 +1,6 @@
 /**
  * Browser-side microphone / file analysis via Web Audio API.
  * Never uploads audio. Cleans up tracks on stop.
- * Provides both frequency levels (continuous mode) and time-domain samples (pulse mode).
  */
 
 export class AudioInput {
@@ -12,10 +11,9 @@ export class AudioInput {
     this.stream = null;
     this.raf = null;
     this.active = false;
-    /** @type {((bass: number, overall: number) => void)|null} */
     this.onLevel = null;
-    /** @type {((samples: Float32Array) => void)|null} */
     this.onSamples = null;
+    this.onFeatures = null;
     this._freqData = null;
     this._timeData = null;
   }
@@ -50,8 +48,8 @@ export class AudioInput {
 
   _setupAnalyser() {
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 512;
-    this.analyser.smoothingTimeConstant = 0.4;
+    this.analyser.fftSize = 1024;
+    this.analyser.smoothingTimeConstant = 0.35;
     this.source.connect(this.analyser);
     this._freqData = new Uint8Array(this.analyser.frequencyBinCount);
     this._timeData = new Float32Array(this.analyser.fftSize);
@@ -60,8 +58,13 @@ export class AudioInput {
   _tick() {
     if (!this.active || !this.analyser) return;
 
+    const needFreq = !!(this.onLevel || this.onFeatures);
+    const needTime = !!(this.onSamples || this.onFeatures);
+
+    if (needFreq) this.analyser.getByteFrequencyData(this._freqData);
+    if (needTime) this.analyser.getFloatTimeDomainData(this._timeData);
+
     if (this.onLevel) {
-      this.analyser.getByteFrequencyData(this._freqData);
       const lowN = Math.max(1, Math.floor(this._freqData.length / 8));
       let bass = 0;
       let total = 0;
@@ -69,15 +72,11 @@ export class AudioInput {
         total += this._freqData[i];
         if (i < lowN) bass += this._freqData[i];
       }
-      bass = bass / (lowN * 255);
-      const overall = total / (this._freqData.length * 255);
-      this.onLevel(bass, overall);
+      this.onLevel(bass / (lowN * 255), total / (this._freqData.length * 255));
     }
 
-    if (this.onSamples) {
-      this.analyser.getFloatTimeDomainData(this._timeData);
-      this.onSamples(this._timeData);
-    }
+    if (this.onSamples) this.onSamples(this._timeData);
+    if (this.onFeatures) this.onFeatures(this._timeData, this._freqData);
 
     this.raf = requestAnimationFrame(() => this._tick());
   }
@@ -95,6 +94,7 @@ export class AudioInput {
     this.analyser = null;
     this.onLevel = null;
     this.onSamples = null;
+    this.onFeatures = null;
     if (this.stream) {
       for (const t of this.stream.getTracks()) t.stop();
       this.stream = null;

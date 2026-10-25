@@ -8,6 +8,7 @@ on:
       - fix/github-pages-browser
       - feat/acoustic-pulse-injection
       - feat/mic-continuous-injection
+      - feat/audio-reactive-waveforms
   pull_request:
 
 jobs:
@@ -28,3 +29,6 @@ jobs:
 
       - name: Run pulse / envelope unit tests
         run: node scripts/test_pulse.js
+
+      - name: Run audio-feature unit tests
+        run: node scripts/test_audio_features.js
