@@ -90,6 +90,10 @@ def main() -> int:
         "continuousStrength",
         "fieldDecay",
         "refractoryMs",
+        "waveformDisplacement",
+        "frequencyResponse",
+        "audioSensitivity",
+        "audioSmoothing",
     ):
         if pulse_key not in rend.get("defaults", {}):
             errors.append(f"renderer.yaml defaults missing pulse key {pulse_key}")
@@ -106,8 +110,10 @@ def main() -> int:
         "assets/js/export.js",
         "assets/js/triplets.js",
         "assets/js/pulse-injection.js",
+        "assets/js/audio-features.js",
         "assets/css/app.css",
         "scripts/test_pulse.js",
+        "scripts/test_audio_features.js",
     )
     for rel in required_assets:
         if not (ROOT / rel).exists():
@@ -123,7 +129,7 @@ def main() -> int:
     print(f"  triplets: {len(triplets)} (order preserved, duplicates kept)")
     print(f"  presets: {len(presets['presets'])}")
     print(f"  sample gematria[{triplets[0]['letters']}] = {gematria(triplets[0]['letters'])}")
-    print("  pulse / continuous-injection modules: present")
+    print("  pulse / continuous-injection / audio-features modules: present")
     return 0
 
 
