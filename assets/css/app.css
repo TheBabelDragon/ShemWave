@@ -257,3 +257,23 @@ input[type="range"] { accent-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* inspire.js dock + quick actions */
+.dock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  align-items: center;
+}
+.dock button {
+  width: auto;
+  margin-top: 0;
+  padding: 0.45rem 0.85rem;
+  flex: 0 0 auto;
+}
+.dock button.primary,
+button#invite-listen.primary {
+  background: #1a3a38;
+  border-color: #2a6a62;
+}
